@@ -57,16 +57,8 @@ def render_options(q: Dict) -> List[str]:
     ]
 
 
-def build_sequence(
-    tok,
-    state: Union[str, dict, list],
-    q: Dict,
-    max_len: int = 512,
-    head_max_len: int = 192,
-    option_order: Optional[List[int]] = None,
-    truncate_left: bool = False,
-):
-    """Format: [CLS] <type> instructions [SEP] [MASK] opt0 [MASK] opt1 ... [SEP] state [SEP]."""
+def build_prefix(tok, q: Dict, head_max_len: int = 192, option_order=None):
+    """Build the question-only prefix, before state tokens and final truncation."""
     mask_tok = tok.mask_token
     opts = render_options(q)
     order = option_order if option_order is not None else list(range(len(opts)))
@@ -90,8 +82,24 @@ def build_sequence(
         markers.append(len(ids))
         ids.extend(o)
     ids.append(tok.sep_token_id)
+    return ids, markers
+
+
+def build_sequence(
+    tok,
+    state: Union[str, dict, list],
+    q: Dict,
+    max_len: int = 512,
+    head_max_len: int = 192,
+    option_order: Optional[List[int]] = None,
+    truncate_left: bool = False,
+):
+    """Format: [CLS] <type> instructions [SEP] [MASK] opt0 [MASK] opt1 ... [SEP] state [SEP]."""
+    ids, markers = build_prefix(tok, q, head_max_len, option_order)
     room = max(0, max_len - len(ids) - 1)
-    st = tok(serialize_state(state).replace(mask_tok, " "), add_special_tokens=False)["input_ids"]
+    st = tok(serialize_state(state).replace(tok.mask_token, " "), add_special_tokens=False)[
+        "input_ids"
+    ]
     st = st[-room:] if truncate_left else st[:room]
     ids = ids + st + [tok.sep_token_id]
     return ids[:max_len], [m for m in markers if m < max_len]

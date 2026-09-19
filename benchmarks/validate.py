@@ -24,7 +24,7 @@ from .common import (
 )
 
 
-def validate_model(name, root, repeats):
+def validate_model(name, root, repeats, optimize=False):
     import torch
     from laya.common import QTYPES, build_sequence
     from laya.common import collate_items as torch_collate
@@ -70,7 +70,13 @@ def validate_model(name, root, repeats):
     torch.mps.empty_cache()
     reports = []
     for dtype in ("float32", "float16"):
-        agent = Agent(root / name, dtype=dtype)
+        agent = Agent(
+            root / name,
+            dtype=dtype,
+            compile=optimize,
+            pad_to_multiple=16 if optimize else None,
+            cache_prompts=optimize,
+        )
         cases = []
         max_probability_error = 0.0
         agree = total = 0
@@ -78,7 +84,12 @@ def validate_model(name, root, repeats):
         for entry in prepared:
             items, _ = agent.prepare(entry["state"], entry["questions"])
             assert items == entry["items"], f"Tokenizer mismatch: {name}/{entry['name']}"
-            batch = collate_items(items, agent.tok.pad_token_id)
+            batch = collate_items(
+                items,
+                agent.tok.pad_token_id,
+                pad_to_multiple=agent.pad_to_multiple,
+                max_length=agent.cfg.get("max_len", 512),
+            )
             logits, act = agent.forward(batch)
             logits, act = np.asarray(logits), np.asarray(act)
             assert np.isfinite(logits).all() and np.isfinite(act).all()
@@ -132,6 +143,7 @@ def validate_model(name, root, repeats):
             "model": name,
             "revision": MODELS[name],
             "dtype": dtype,
+            "optimized": optimize,
             "argmax_agreements": agree,
             "questions": total,
             "probability_max_abs_error": max_probability_error,
@@ -164,6 +176,7 @@ def main():
     parser.add_argument("--model-root", type=Path, default=Path("models"))
     parser.add_argument("--models", nargs="+", choices=list(MODELS), default=list(MODELS))
     parser.add_argument("--repeats", type=int, default=100)
+    parser.add_argument("--optimize", action="store_true")
     parser.add_argument("--output", type=Path, default=Path("benchmarks/results/validation.json"))
     args = parser.parse_args()
     if args.repeats < 1:
@@ -180,7 +193,7 @@ def main():
         "results": [],
     }
     for name in args.models:
-        report["results"].extend(validate_model(name, args.model_root, args.repeats))
+        report["results"].extend(validate_model(name, args.model_root, args.repeats, args.optimize))
         save_json(args.output, report)
 
 

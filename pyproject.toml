@@ -6,6 +6,14 @@ build-backend = "hatchling.build"
 name = "laya-mlx"
 version = "0.1.0"
 description = "Native MLX inference for Laya typed decision models on Apple silicon"
+keywords = ["mlx", "laya", "typed-decisions", "decision-model", "local-ai", "apple-silicon"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -20,16 +28,24 @@ dependencies = [
 dev = ["pytest>=8", "ruff>=0.12", "build>=1"]
 reference = ["torch>=2.14,<3", "transformers>=5.17,<6", "safetensors>=0.6"]
 benchmark = ["matplotlib>=3.10", "pyarrow>=18"]
+demo = ["rich>=15,<16", "Pillow>=12,<13"]
 
 [project.scripts]
 laya-mlx = "laya_mlx.cli:main"
+laya-snake = "laya_mlx.snake.cli:main"
 
 [project.urls]
 Repository = "https://github.com/mizorewww/laya-mlx"
 Upstream = "https://github.com/NandhaKishorM/laya"
+Documentation = "https://github.com/mizorewww/laya-mlx#readme"
+Issues = "https://github.com/mizorewww/laya-mlx/issues"
+Benchmarks = "https://github.com/mizorewww/laya-mlx/blob/main/BENCHMARKS.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["laya_mlx"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/laya_mlx", "/pyproject.toml", "/README.md", "/LICENSE", "/NOTICE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

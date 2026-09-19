@@ -123,6 +123,58 @@ def test_collation_never_marks_padding_as_an_option():
     )
 
 
+def test_cached_prefixes_preserve_inputs_under_mutation_truncation_and_eviction(
+    tiny_checkpoint, questions
+):
+    original = Agent(tiny_checkpoint, dtype="float32")
+    cached = Agent(tiny_checkpoint, dtype="float32", cache_prompts=True)
+    cached._prefix_cache.capacity = 3
+    states = ["", "[MASK] hello", "hello " * 1000, {"text": "你好", "flag": False}]
+    for state in states:
+        for count in (2, 5, 12):
+            questions["topic"]["criteria"] = {str(i): {"value": i} for i in range(count)}
+            assert original.prepare(state, questions) == cached.prepare(state, questions)
+            assert len(cached._prefix_cache.entries) <= 3
+    assert cached.prepare("", {}) == ([], [])
+
+
+def test_compiled_bucket_path_preserves_predictions_and_handles_shape_changes(
+    tiny_checkpoint, questions
+):
+    original = Agent(tiny_checkpoint, dtype="float32", batch_size=2)
+    optimized = Agent(
+        tiny_checkpoint,
+        dtype="float32",
+        batch_size=2,
+        compile=True,
+        pad_to_multiple=16,
+        cache_prompts=True,
+    )
+    for state in ("hello", "hello " * 70, "hello hello", ""):
+        baseline, candidate = (
+            original.predict(state, questions),
+            optimized.predict(state, questions),
+        )
+        assert candidate["usage"] == baseline["usage"]
+        for qid, answer in baseline["answers"].items():
+            other = candidate["answers"][qid]
+            if "probabilities" in answer:
+                assert other["probabilities"] == pytest.approx(answer["probabilities"], abs=0.0002)
+            if "choice" in answer:
+                assert other["choice"] == answer["choice"]
+            if "noul" in answer:
+                assert other["noul"] == pytest.approx(answer["noul"], abs=0.0002)
+
+
+def test_bucket_padding_is_masked_and_respects_context_limit():
+    items = [{"ids": [1, 2, 3], "markers": [1, 2], "qtype": 0}]
+    batch = collate_items(items, 9, pad_to_multiple=16, max_length=12)
+    assert batch["input_ids"].shape == (1, 12)
+    assert batch["input_ids"][0, :3].tolist() == [1, 2, 3]
+    assert batch["input_ids"][0, 3:].tolist() == [9] * 9
+    assert batch["attention_mask"][0].tolist() == [True] * 3 + [False] * 9
+
+
 def test_local_path_and_subfolder_errors(tmp_path):
     with pytest.raises(FileNotFoundError):
         resolve_model(tmp_path / "missing")

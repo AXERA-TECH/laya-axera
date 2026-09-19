@@ -10,6 +10,7 @@ from huggingface_hub import snapshot_download
 
 from .common import QTYPES, build_sequence, confidence_from_probs, render_options, temp_bucket
 from .model import DecisionModel, EncoderConfig, sanitize_weights
+from .prepared import PrefixCache
 from .tokenizer import Tokenizer
 
 DTYPES = {"float32": mx.float32, "float16": mx.float16, "bfloat16": mx.bfloat16}
@@ -47,10 +48,14 @@ def resolve_model(model_id_or_path, *, token=None, subfolder=None, revision=None
     return path
 
 
-def collate_items(items, pad_id):
+def collate_items(items, pad_id, *, pad_to_multiple=None, max_length=None):
     if not items:
         raise ValueError("Cannot collate an empty batch")
     n, length = len(items), max(len(item["ids"]) for item in items)
+    if pad_to_multiple:
+        length = ((length + pad_to_multiple - 1) // pad_to_multiple) * pad_to_multiple
+        if max_length is not None:
+            length = min(length, max_length)
     count = max(2, max(len(item["markers"]) for item in items))
     batch = {
         "input_ids": np.full((n, length), pad_id, dtype=np.int32),
@@ -79,6 +84,9 @@ class Agent:
         dtype="float16",
         revision=None,
         batch_size=16,
+        compile=False,
+        pad_to_multiple=None,
+        cache_prompts=False,
     ):
         if dtype not in DTYPES:
             raise ValueError(f"dtype must be one of {list(DTYPES)}")
@@ -91,6 +99,14 @@ class Agent:
         )
         self.dtype = DTYPES[dtype]
         self.batch_size = batch_size
+        if pad_to_multiple is not None and (
+            not isinstance(pad_to_multiple, int)
+            or isinstance(pad_to_multiple, bool)
+            or pad_to_multiple < 1
+        ):
+            raise ValueError("pad_to_multiple must be a positive integer or None")
+        self.pad_to_multiple = pad_to_multiple
+        self._prefix_cache = PrefixCache() if cache_prompts else None
         self.model_id = str(model_id_or_path)
         self.revision = revision
         self.model_dir = resolve_model(
@@ -120,6 +136,8 @@ class Agent:
             self.model.load_weights(list(weights.items()), strict=True)
             self.model.eval()
             mx.eval(self.model.parameters())
+        # Frozen inference instance: changing weights or module structure requires a new Agent.
+        self._inference = mx.compile(self.model) if compile else self.model
 
     @staticmethod
     def _to_internal(qdef):
@@ -154,6 +172,8 @@ class Agent:
 
     def prepare(self, state, questions):
         """Construct upstream-compatible CPU inputs, useful for parity and profiling."""
+        if self._prefix_cache is not None:
+            return self._prefix_cache.prepare(self, state, questions)
         if not isinstance(questions, dict):
             raise ValueError("questions must be a dictionary keyed by question id")
         items, internal = [], []
@@ -172,7 +192,7 @@ class Agent:
         """Run one prepared batch and return evaluated MLX logits on this agent's device."""
         with mx.stream(self.device):
             tensors = {k: mx.array(v) for k, v in batch.items()}
-            result = self.model(**tensors)
+            result = self._inference(**tensors)
             mx.eval(result)
         return result
 
@@ -182,7 +202,12 @@ class Agent:
         question_ids = list(questions)
         for start in range(0, len(items), self.batch_size):
             chunk = items[start : start + self.batch_size]
-            batch = collate_items(chunk, self.tok.pad_token_id)
+            batch = collate_items(
+                chunk,
+                self.tok.pad_token_id,
+                pad_to_multiple=self.pad_to_multiple,
+                max_length=self.cfg.get("max_len", 512),
+            )
             logits, act = self.forward(batch)
             logits, act = np.asarray(logits), np.asarray(act)
             if not np.isfinite(logits).all() or not np.isfinite(act).all():

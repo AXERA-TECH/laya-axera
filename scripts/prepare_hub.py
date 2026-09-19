@@ -69,10 +69,10 @@ This checkpoint uses **{encoder}**, a **{context}-token total context**, and Lay
 
 ## Usage
 
-Install the dedicated runtime on an Apple silicon Mac with macOS 26+ and Python 3.11+:
+Install the dedicated runtime on an Apple silicon Mac with macOS 14+ and Python 3.11+:
 
 ```bash
-python -m pip install 'git+https://github.com/mizorewww/laya-mlx.git'
+python -m pip install laya-mlx
 ```
 
 ```python

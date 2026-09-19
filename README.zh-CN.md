@@ -1,10 +1,66 @@
-# laya-mlx
+# Laya-MLX
 
-[English](README.md) · [本机 benchmark](BENCHMARKS.md) · [上游 Laya](https://github.com/NandhaKishorM/laya)
+![Laya MLX 实际运行记录，原速回放](docs/assets/snake-demo.gif)
 
-在 Apple silicon 上用 **原生 MLX** 运行 Laya 的结构化决策模型。支持 `choice`（分类）、`score`（有序评分）和 `noul`（P(true)），以及原版的问题格式、概率校准、语言路由和应用预设。
+**在 Apple Silicon 上本地运行开放权重的结构化决策模型。**
 
-编码器、决策 Transformer、评分头和 action 头都在 MLX 中计算。推理运行时依赖 Rust tokenizer，**不需要 PyTorch 或 Transformers**。三个检查点均可直接读取上游 safetensors，也可导出独立的 MLX 权重目录。
+单个短问题端到端中位耗时 **13.4 ms**；multilingual 检查点为 **7.4 ms**。**0 个输出 token**，原生 MLX，无 PyTorch / Transformers 推理依赖，无云端 API。
+
+[English](README.md) · [完整 benchmark](BENCHMARKS.md) · [Snake 使用说明](docs/SNAKE_DEMO.md) · [30 秒 MP4](docs/assets/snake-demo.mp4)
+
+GIF 使用真实游戏记录按原始时间戳渲染。每步都调用 Laya，界面显示循环路径安全层及其接管次数。上面的 13.4 / 7.4 ms 来自**单问题 API 基准**，并非每步批量回答三个问题的 Snake 帧耗时；游戏速度见[独立报告](docs/SNAKE_BENCHMARKS.md)。
+
+## 快速开始
+
+```bash
+pip install laya-mlx
+```
+
+```python
+import laya_mlx as laya
+
+agent = laya.load("aac6fef/laya-multilingual-mlx")
+result = agent.predict(
+    "发票被重复扣款，请退款。",
+    {
+        "department": {
+            "type": "choice",
+            "instructions": "Who should handle this?",
+            "criteria": ["billing", "technical", "sales"],
+        }
+    },
+)
+print(result["answers"]["department"])
+```
+
+运行贪吃蛇：
+
+```bash
+pip install 'laya-mlx[demo]'
+hf download aac6fef/laya-multilingual-mlx
+laya-snake
+```
+
+提前下载一次权重，游戏运行期间完全本地推理。终端至少 104 列 × 35 行；空格暂停、↑/↓ 调速、R 重开、Q 退出。`--max-speed` 持续满速运行，每一步等待新的模型结果。
+
+`laya-snake --optimize --max-speed` 启用已验证的编译与前缀复用路径。同轮成对测试中，2,400 步达到 **75.40 步/秒**，零死亡、安全接管 2 次，比 eager 基线快约 **6.5%**。[完整游戏表现、优化测量和一致性证据](docs/SNAKE_OPTIMIZATION.md)。
+
+## M3 Max 实测
+
+| FP16，端到端 | Laya 421M | Multilingual 322M |
+|---|---:|---:|
+| 单个短问题 P50 | **13.42 ms** | **7.39 ms** |
+| 单个短问题 P95 | **13.92 ms** | **7.79 ms** |
+| 50 问题吞吐量 | **146.8 q/s** | **395.0 q/s** |
+| 单个短问题 MLX 峰值分配 | **943.6 MiB** | **687.6 MiB** |
+
+硬件为 M3 Max（40 核 GPU、128 GiB 内存）。计时包含提示准备、tokenization、张量构建、GPU 同步推理、校准及结果格式化，排除模型加载。50 问题吞吐量使用 `batch_size=64`，公开 API 默认为 16。
+
+**移植一致性：**三个检查点在 FP32 和 FP16 下均通过 **63/63** 验证问题的上游 argmax 对齐，合计 378/378；每个配置各执行 100 次重复调用，结果有限、确定，测得活跃内存增长为零。它验证移植保真度，不代表所有实际问题都能答对。[完整误差和原始记录](BENCHMARKS.md)。
+
+`choice` 返回分类概率，`score` 返回有序评分，`noul` 返回 P(true)。每个问题作为独立行经过双向编码器；不宣称任意问题可以复用同一份 state hidden states。本项目是独立 MLX 移植，并非 Convai Innovations 官方发布。
+
+## 支持的检查点
 
 | 检查点 | 编码器 | 参数量 | 最大上下文 |
 |---|---|---:|---:|
@@ -24,7 +80,7 @@
 
 ## 安装与运行
 
-需要 Apple silicon Mac、macOS 26+ 和 Python 3.11+。本机实测环境为 M3 Max（40 核 GPU、128 GB 内存）、macOS 27.2、Python 3.12.13、MLX 0.32.2。锁定依赖中的 MLX wheel 要求 macOS 26+。
+需要 Apple silicon Mac、macOS 14+ 和 Python 3.11+。本机实测环境为 M3 Max（40 核 GPU、128 GB 内存）、macOS 27.2、Python 3.12.13、MLX 0.32.2。MLX 0.32.2 提供 macOS 14 / 15 / 26 的 wheel，本机选择了 26 构建；未在这台机器上实测旧系统。
 
 ```bash
 gh repo clone mizorewww/laya-mlx

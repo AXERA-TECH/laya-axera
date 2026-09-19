@@ -664,6 +664,10 @@ benchmark = [
     { name = "matplotlib" },
     { name = "pyarrow" },
 ]
+demo = [
+    { name = "pillow" },
+    { name = "rich" },
+]
 dev = [
     { name = "build" },
     { name = "pytest" },
@@ -682,15 +686,17 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'benchmark'", specifier = ">=3.10" },
     { name = "mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.32.2,<0.33" },
     { name = "numpy", specifier = ">=1.26" },
+    { name = "pillow", marker = "extra == 'demo'", specifier = ">=12,<13" },
     { name = "pyarrow", marker = "extra == 'benchmark'", specifier = ">=18" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+    { name = "rich", marker = "extra == 'demo'", specifier = ">=15,<16" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12" },
     { name = "safetensors", marker = "extra == 'reference'", specifier = ">=0.6" },
     { name = "tokenizers", specifier = ">=0.21,<1" },
     { name = "torch", marker = "extra == 'reference'", specifier = ">=2.14,<3" },
     { name = "transformers", marker = "extra == 'reference'", specifier = ">=5.17,<6" },
 ]
-provides-extras = ["dev", "reference", "benchmark"]
+provides-extras = ["dev", "reference", "benchmark", "demo"]
 
 [[package]]
 name = "markdown-it-py"
