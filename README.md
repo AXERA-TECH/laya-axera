@@ -16,6 +16,14 @@ The encoder, decision Transformer, scoring head, and action head all run in MLX.
 
 Context includes instructions, options and state. All three use the original weights, prompt formatting, temperature calibration, and output schema. This repository provides inference and conversion; RLCD training and fine-tuning remain in the upstream project. It is an independent port, not an official Convai Innovations release.
 
+Pre-converted FP16 checkpoints are published on Hugging Face:
+
+- [aac6fef/laya-mlx](https://huggingface.co/aac6fef/laya-mlx)
+- [aac6fef/laya-multilingual-mlx](https://huggingface.co/aac6fef/laya-multilingual-mlx)
+- [aac6fef/laya-typed-decisions-mlx](https://huggingface.co/aac6fef/laya-typed-decisions-mlx)
+
+Load these directly with `laya.load("aac6fef/laya-mlx")`, or use the original checkpoint IDs above. Each published checkpoint includes its model card, validation results, provenance, license and file checksums.
+
 ## Install
 
 Use an Apple silicon Mac, macOS 26 or later, and Python 3.11 or later. The recorded environment is Python 3.12.13, MLX 0.32.2 and macOS 27.2; the lockfile selects macOS 26+ MLX wheels.
@@ -149,6 +157,19 @@ python -m benchmarks.report
 Run GPU measurements sequentially. Unit tests use small random models and include direct comparisons with Transformers and the pinned upstream decision head. Real checkpoint validation tests tokenization, logits, calibrated probabilities, repeated outputs and active memory growth. The benchmark runs each backend/checkpoint in a fresh process and stores every timing sample in [benchmarks/results](benchmarks/results). The [full report](BENCHMARKS.md) explains the timing boundaries and precision differences.
 
 GitHub Actions runs small-model CPU tests on a macOS arm64 runner. Full checkpoint GPU benchmarks are measured locally and are not part of hosted CI.
+
+## Performance research
+
+[PERFORMANCE_RESEARCH.md](docs/PERFORMANCE_RESEARCH.md) analyzes the measured bottlenecks and proposes experiments for compilation, projection quantization, actual sparse window attention, batching and exact head pruning. These are research directions, not additional measured speedups in the released runtime.
+
+To prepare model cards and verified exports for publication, install the reference extras and run:
+
+```bash
+python -m scripts.prepare_hub --account YOUR_HF_USERNAME
+hf upload YOUR_HF_USERNAME/laya-mlx models/hub/laya-mlx . --exclude '.cache/*'
+```
+
+The preparation script checks every exported tensor against its original FP16 source. Upload the other two prepared folders in the same way, then use `hf cache verify REPO_ID --local-dir EXPORT_PATH` to check the remote files.
 
 ## Attribution and license
 

@@ -14,6 +14,14 @@
 
 上下文预算包含问题、选项和输入状态。中文等非英语输入应使用 multilingual 检查点。本项目实现推理与权重转换；RLCD 训练和微调继续使用上游项目。
 
+已转换的 FP16 MLX 权重发布在 Hugging Face，可直接传给 `laya.load(...)`：
+
+- [aac6fef/laya-mlx](https://huggingface.co/aac6fef/laya-mlx)
+- [aac6fef/laya-multilingual-mlx](https://huggingface.co/aac6fef/laya-multilingual-mlx)
+- [aac6fef/laya-typed-decisions-mlx](https://huggingface.co/aac6fef/laya-typed-decisions-mlx)
+
+例如：`laya.load("aac6fef/laya-multilingual-mlx")`。每个模型仓库都包含模型卡、测试结果、来源、许可证和文件校验清单。
+
 ## 安装与运行
 
 需要 Apple silicon Mac、macOS 26+ 和 Python 3.11+。本机实测环境为 M3 Max（40 核 GPU、128 GB 内存）、macOS 27.2、Python 3.12.13、MLX 0.32.2。锁定依赖中的 MLX wheel 要求 macOS 26+。
@@ -85,5 +93,7 @@ uv run laya-mlx convert \
 `Router`、`triage_questions`、`email_questions`、`guard_questions`、`moderation_questions` 等接口保留上游用法，将导入名改为 `laya_mlx` 即可。typed-decisions 检查点可通过 `task="typed_decisions"` 显式指定；`Router(preload=True)` 可预加载三个模型。
 
 详细的 API、测试和复现命令见 [英文 README](README.md)。[BENCHMARKS.md](BENCHMARKS.md) 包含本机 PyTorch MPS FP32、MLX FP32 与 MLX FP16 的端到端 P50/P95、吞吐量、内存、数值一致性、重复运行和固定抽样分类测试。所有原始测量数据位于 [benchmarks/results](benchmarks/results)，GPU 测试应串行运行。
+
+[性能优化研究](docs/PERFORMANCE_RESEARCH.md) 根据实际实现、测量结果和 MLX 源码，分析编译、量化、稀疏局部注意力、批处理等方向，并给出正确性约束和实验方案。该研究中的优化建议尚未作为加速功能集成到本次发布。
 
 这是独立的 MLX 移植，模型能力及其限制来自上游；模型输出概率不等于答案必然正确。采用 Apache-2.0，原作者与移植说明见 [NOTICE](NOTICE)。

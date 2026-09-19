@@ -45,6 +45,7 @@ def main():
         "- End-to-end timing includes prompt construction, tokenization, tensor construction, model execution, calibration, and result formatting. Model loading and downloads are excluded.",
         "- Forward timing uses prepared device tensors and includes the encoder, decision head, scoring head and action head. GPU completion is synchronized for every sample; lazy MLX graph construction alone is never timed as inference.",
         "- All backends receive identical state and question JSON. The report generator verifies matching input hashes, token totals and padded sequence lengths.",
+        "- The 5/10/50-question fixtures cycle three question templates. The released runtime evaluates every row and has no result cache or deduplication; these rows measure repeated-template batch throughput. Optimization studies should add distinct-question workloads, as detailed in docs/PERFORMANCE_RESEARCH.md.",
         "- MLX uses batch_size=64 for these measurements so even 50 questions fit in one batch. The public runtime defaults to 16 to bound memory; changing batch size can change throughput.",
         "- PyTorch MPS uses upstream's default FP32. MLX FP32 provides the same-precision comparison. MLX FP16 trades some numerical precision for speed and memory; its speedup includes that precision change.",
         "- P50/P95 are percentiles of measured wall-clock latency. Throughput is questions / mean latency, not the inverse of P50. Raw JSON contains every timing sample.",
@@ -119,6 +120,10 @@ def main():
     accuracy_file = args.results / "accuracy.json"
     if accuracy_file.exists():
         accuracy = json.loads(accuracy_file.read_text())
+        if {r["model"] for r in accuracy["results"]} != set(MODELS):
+            raise ValueError(
+                "Accuracy run is incomplete; wait for all checkpoints before reporting"
+            )
         lines += [
             "## Labeled task sample",
             "",
@@ -205,7 +210,9 @@ def plot(records, row):
         fontsize=9,
     )
     fig.savefig(ROOT / "benchmarks/latency.png", dpi=180)
-    fig.savefig(ROOT / "benchmarks/latency.svg")
+    svg = ROOT / "benchmarks/latency.svg"
+    fig.savefig(svg)
+    svg.write_text("\n".join(line.rstrip() for line in svg.read_text().splitlines()) + "\n")
     plt.close(fig)
 
 

@@ -101,7 +101,8 @@ def main():
             }
         )
         save_json(args.output, report)
-        print(f"{name}: {report['results'][-1]}", flush=True)
+        summary = {k: v for k, v in report["results"][-1].items() if k != "predictions"}
+        print(f"{name}: {summary}", flush=True)
 
 
 if __name__ == "__main__":
