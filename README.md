@@ -160,7 +160,15 @@ GitHub Actions runs small-model CPU tests on a macOS arm64 runner. Full checkpoi
 
 ## Performance research
 
-[PERFORMANCE_RESEARCH.md](docs/PERFORMANCE_RESEARCH.md) analyzes the measured bottlenecks and proposes experiments for compilation, projection quantization, actual sparse window attention, batching and exact head pruning. These are research directions, not additional measured speedups in the released runtime.
+The performance investigations include both mathematical analysis and independent local experiments:
+
+- [Initial performance research](docs/PERFORMANCE_RESEARCH.md): implementation bottlenecks, MLX kernel dispatch, and a controlled experiment plan.
+- [Mathematical investigation of a further 10× speedup](docs/MATH_10X_RESEARCH.md): arithmetic budgets, conditional bandwidth bounds, real weight spectra, exact reuse, and smaller-model designs.
+- [Engineering investigation](docs/ENGINEERING_10X_RESEARCH.md): measured compilation, quantization, final-head selection, custom Metal kernels, and representative matrix multiplications.
+
+[experiments/](experiments) contains the research scripts and their raw measurements. The published runtime's performance and validation results are in [BENCHMARKS.md](BENCHMARKS.md); each experimental variant has its own timing and correctness results.
+
+The current investigation does not support a further universal 10× speedup with the same checkpoints. Selected cases show approximately 1.03–1.08× paired median speedups; the engineering report gives the uncertainty intervals, quantization fidelity results, and custom Metal kernel measurements.
 
 To prepare model cards and verified exports for publication, install the reference extras and run:
 
