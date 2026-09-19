@@ -1,0 +1,14 @@
+.venv/
+.upstream/
+.cache/
+models/
+*.safetensors
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.DS_Store
+.env
+*.log
