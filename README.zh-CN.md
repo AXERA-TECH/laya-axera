@@ -20,7 +20,7 @@
 - [aac6fef/laya-multilingual-mlx](https://huggingface.co/aac6fef/laya-multilingual-mlx)
 - [aac6fef/laya-typed-decisions-mlx](https://huggingface.co/aac6fef/laya-typed-decisions-mlx)
 
-例如：`laya.load("aac6fef/laya-multilingual-mlx")`。每个模型仓库都包含模型卡、测试结果、来源、许可证和文件校验清单。
+例如：`laya.load("aac6fef/laya-multilingual-mlx")`。每个模型仓库都包含模型卡、测试结果、来源、许可证和文件校验清单。三个仓库共 36 个文件均已通过严格远端校验；固定版本与权重哈希见 [hub-publication.json](benchmarks/results/hub-publication.json)。
 
 ## 安装与运行
 
@@ -44,7 +44,7 @@ Python 示例：
 ```python
 import laya_mlx as laya
 
-agent = laya.load("convaiinnovations/laya-multilingual")
+agent = laya.load("aac6fef/laya-multilingual-mlx")
 result = agent.predict(
     "发票被重复扣款，请今天退款。",
     {
@@ -68,7 +68,7 @@ print(result["answers"])
 
 ```bash
 uv run laya-mlx predict \
-  --model convaiinnovations/laya-multilingual \
+  --model aac6fef/laya-multilingual-mlx \
   --state '发票被重复扣款，请退款。' \
   --questions examples/questions.json
 ```

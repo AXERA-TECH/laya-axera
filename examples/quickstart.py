@@ -6,7 +6,7 @@ from pathlib import Path
 import laya_mlx as laya
 
 root = Path(__file__).parent
-agent = laya.load("convaiinnovations/laya")
+agent = laya.load("aac6fef/laya-mlx")
 result = agent.predict(
     json.loads((root / "state.json").read_text()),
     json.loads((root / "questions.json").read_text()),

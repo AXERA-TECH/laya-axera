@@ -22,7 +22,7 @@ Pre-converted FP16 checkpoints are published on Hugging Face:
 - [aac6fef/laya-multilingual-mlx](https://huggingface.co/aac6fef/laya-multilingual-mlx)
 - [aac6fef/laya-typed-decisions-mlx](https://huggingface.co/aac6fef/laya-typed-decisions-mlx)
 
-Load these directly with `laya.load("aac6fef/laya-mlx")`, or use the original checkpoint IDs above. Each published checkpoint includes its model card, validation results, provenance, license and file checksums.
+Load these directly with `laya.load("aac6fef/laya-mlx")`, or use the original checkpoint IDs above. Each published checkpoint includes its model card, validation results, provenance, license and file checksums. All 36 published files passed strict remote checksum verification; pinned revisions and weight hashes are recorded in [hub-publication.json](benchmarks/results/hub-publication.json).
 
 ## Install
 
@@ -48,7 +48,7 @@ The first load downloads the selected checkpoint. Model weights are excluded fro
 ```python
 import laya_mlx as laya
 
-agent = laya.load("convaiinnovations/laya", dtype="float16")
+agent = laya.load("aac6fef/laya-mlx", dtype="float16")
 result = agent.predict(
     "I was billed twice. Please refund the duplicate today.",
     {
@@ -113,12 +113,12 @@ The router, language heuristics, email helpers and application presets are adapt
 
 ```bash
 uv run laya-mlx predict \
-  --model convaiinnovations/laya \
+  --model aac6fef/laya-mlx \
   --state-file examples/state.json \
   --questions examples/questions.json
 
 uv run laya-mlx predict \
-  --model convaiinnovations/laya-multilingual \
+  --model aac6fef/laya-multilingual-mlx \
   --state '发票被重复扣款，请退款。' \
   --questions examples/questions.json
 ```
