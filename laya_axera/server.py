@@ -14,6 +14,8 @@ from pydantic import BaseModel
 
 from . import __version__
 from .agent import Agent
+from .flappy.game import FlappyGame
+from .flappy.policy import LayaFlappyPolicy
 from .snake.game import SnakeGame
 from .snake.policy import LayaPolicy
 
@@ -110,6 +112,12 @@ class SnakeStepBody(BaseModel):
     session: str
 
 
+class FlappyNewBody(BaseModel):
+    model: Optional[str] = None
+    seed: Optional[int] = None
+    guarded: bool = True
+
+
 def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> FastAPI:
     registry = ModelRegistry(checkpoints, device_id, provider)
     sessions: Dict[str, Dict[str, Any]] = {}
@@ -193,6 +201,52 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive or game.won,
+        }
+
+    flappy_sessions: Dict[str, Dict[str, Any]] = {}
+
+    @app.post("/api/flappy/new")
+    def flappy_new(body: FlappyNewBody):
+        agent = registry.get(body.model)
+        seed = body.seed if body.seed is not None else int(time.time() * 1000) % 100000
+        game = FlappyGame(seed=seed)
+        policy = LayaFlappyPolicy(agent, guarded=body.guarded)
+        sid = uuid.uuid4().hex[:12]
+        with sessions_lock:
+            while len(flappy_sessions) >= MAX_SNAKE_SESSIONS:
+                oldest = min(flappy_sessions, key=lambda s: flappy_sessions[s]["created"])
+                del flappy_sessions[oldest]
+            flappy_sessions[sid] = {
+                "game": game,
+                "policy": policy,
+                "created": time.time(),
+                "stats": {"steps": 0, "flaps": 0, "interventions": 0, "inference_ms_total": 0.0},
+            }
+        return {"session": sid, "seed": seed, "state": game.snapshot()}
+
+    @app.post("/api/flappy/step")
+    def flappy_step(body: SnakeStepBody):
+        with sessions_lock:
+            entry = flappy_sessions.get(body.session)
+        if entry is None:
+            raise HTTPException(404, "Unknown or expired flappy session")
+        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+        if not game.alive:
+            return {"state": game.snapshot(), "stats": stats, "done": True}
+        try:
+            decision = policy.decide(game)
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(500, str(exc))
+        game.step(decision.executed == "up")
+        stats["steps"] += 1
+        stats["flaps"] += int(decision.executed == "up")
+        stats["interventions"] += int(decision.intervened)
+        stats["inference_ms_total"] += decision.inference_ms
+        return {
+            "decision": decision.to_dict(),
+            "state": game.snapshot(),
+            "stats": stats,
+            "done": not game.alive,
         }
 
     if WEB_DIR.is_dir():

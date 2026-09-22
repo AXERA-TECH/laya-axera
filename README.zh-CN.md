@@ -107,6 +107,7 @@ laya-axera serve --root models/Laya --port 8010
 
 - **决策台** —— 编辑 state 和 questions，提交到 NPU，以概率条形式查看答案与逐问题延迟；
   一键载入所选 checkpoint 的板端验证示例。
+- **Flappy Bird** —— 每步一个二选一决策（拍翅/滑翔），单问题约 30ms：规划器描述两个动作的后果，模型选择，护栏只纠正致命提议。
 - **贪吃蛇** —— laya-mlx 贪吃蛇演示的网页版。每一步向驻留 checkpoint 问三个问题
   （走向 / 风险 / 食物），确定性的循环安全护栏会纠正不安全的提议并统计每次干预。
   multilingual + 单张 AXCL AX650N 约 10 步/秒。

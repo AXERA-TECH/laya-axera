@@ -117,6 +117,9 @@ laya-axera serve --root models/Laya --port 8010
 - **决策台 / Decisions** — edit state + questions, run them on the NPU, read the answers as
   probability bars with per-question latency. One click loads the board-validated sample
   request of the selected checkpoint.
+- **Flappy Bird** — one binary decision per step (flap or glide), one NPU question at
+  ~30 ms: the planner describes each action's consequence, the model picks, and the
+  optional shield corrects only fatal proposals.
 - **贪吃蛇 / Snake** — the laya-mlx Snake demo, served to the browser. Every move asks the
   resident checkpoint three questions (move / risk / food) on the NPU; a deterministic cycle
   safety shield can correct unsafe proposals, and every intervention is counted and shown.

@@ -17,6 +17,7 @@
   --blue: #2a78d6;
   --blue-soft: rgba(42, 120, 214, 0.16);
   --orange: #eb6834;
+  --aqua: #1baf7a;
   --good: #006300;
   --critical: #d03b3b;
   --board: #f0efec;
@@ -34,6 +35,7 @@
     --blue: #3987e5;
     --blue-soft: rgba(57, 135, 229, 0.22);
     --orange: #d95926;
+    --aqua: #199e70;
     --good: #0ca30c;
     --critical: #d03b3b;
     --board: #131312;
@@ -51,6 +53,7 @@
   --blue: #3987e5;
   --blue-soft: rgba(57, 135, 229, 0.22);
   --orange: #d95926;
+  --aqua: #199e70;
   --good: #0ca30c;
   --critical: #d03b3b;
   --board: #131312;
@@ -154,7 +157,7 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
 /* ---- snake view ---- */
 .snake-grid { display: grid; grid-template-columns: minmax(300px, 1fr) 340px; gap: 32px; align-items: start; }
 .board-wrap { position: relative; }
-#board {
+#board, #fboard {
   width: 100%; display: block; background: var(--board);
   border: 1px solid var(--border); border-radius: 6px;
 }
@@ -204,6 +207,7 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
   <nav>
     <button id="nav-decide" class="active">决策台</button>
     <button id="nav-snake">贪吃蛇</button>
+    <button id="nav-flappy">Flappy Bird</button>
   </nav>
   <div id="engine">连接中…</div>
 </header>
@@ -269,6 +273,43 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <div class="stat"><div class="slabel">蛇身长度</div><div class="sval" id="s-len">–</div></div>
         </div>
         <div class="error" id="snake-error" hidden></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="view-flappy" hidden>
+    <div class="snake-grid">
+      <div class="board-wrap">
+        <canvas id="fboard" width="960" height="640" aria-label="Flappy Bird 棋盘，每一步拍翅与否由 Laya 在 NPU 上实时决策"></canvas>
+        <div class="overlay" id="f-overlay">
+          <div id="f-overlay-title">拍翅还是滑翔，每一步都是一次 NPU 决策</div>
+          <small id="f-overlay-sub">规则引擎描述两个动作的后果，模型二选一，单问题约 30ms。</small>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="controls">
+          <button class="btn primary" id="flappy-new">新开一局</button>
+          <button class="btn" id="flappy-toggle" disabled>暂停</button>
+          <label>速度
+            <input type="range" id="f-speed" min="1" max="11" value="8" aria-label="每秒决策数，最右为不限速">
+          </label>
+          <label><input type="checkbox" id="f-guarded" checked> 安全护栏</label>
+        </div>
+        <div class="dir-rows" id="f-rows"></div>
+        <div class="decision-note" id="f-note">模型在「up 拍翅」和「down 滑翔」之间选择，护栏只纠正致命提议。</div>
+        <div class="gauges">
+          <div class="gauge"><div class="glabel">距缝隙中心 gap offset</div><div class="track"><div class="fill" id="f-g-off"></div></div><div class="gval" id="f-g-off-v">–</div></div>
+          <div class="gauge"><div class="glabel">下一根管 next pipe</div><div class="track"><div class="fill" id="f-g-dist"></div></div><div class="gval" id="f-g-dist-v">–</div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="slabel">得分</div><div class="sval" id="f-s-score">0</div></div>
+          <div class="stat"><div class="slabel">决策数</div><div class="sval" id="f-s-steps">0</div></div>
+          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="f-s-int">0</div></div>
+          <div class="stat"><div class="slabel">单步推理</div><div class="sval" id="f-s-inf">–<small> ms</small></div></div>
+          <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="f-s-mps">–<small> 步/s</small></div></div>
+          <div class="stat"><div class="slabel">拍翅比例</div><div class="sval" id="f-s-flap">–</div></div>
+        </div>
+        <div class="error" id="flappy-error" hidden></div>
       </aside>
     </div>
   </section>
@@ -591,26 +632,179 @@ function snakeToggle() {
   if (s.playing) loop(s.gen);
 }
 
+/* ---------- flappy view ---------- */
+
+const FDIR_LABEL = { up: "↑ 拍翅", down: "↓ 滑翔" };
+
+function initFlappyRows() {
+  const box = $("f-rows");
+  box.innerHTML = "";
+  for (const d of ["up", "down"]) {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.id = "fdir-" + d;
+    row.innerHTML = `<span class="opt">${FDIR_LABEL[d]}</span>
+      <span class="track"><span class="fill"></span></span>
+      <span class="val">–</span>`;
+    box.appendChild(row);
+  }
+}
+
+function updateFlappyPanel(decision) {
+  for (const d of ["up", "down"]) {
+    const row = $("fdir-" + d);
+    const p = decision ? decision.probabilities[d] : 0;
+    row.classList.toggle("chosen", !!decision && decision.executed === d);
+    row.querySelector(".fill").style.width = (p * 100).toFixed(2) + "%";
+    row.querySelector(".val").textContent = decision ? pct(p) : "–";
+    row.querySelector(".opt").textContent =
+      (decision && decision.executed === d ? "✓ " : "") + FDIR_LABEL[d];
+  }
+  const note = $("f-note");
+  if (!decision) {
+    note.textContent = "模型在「up 拍翅」和「down 滑翔」之间选择，护栏只纠正致命提议。";
+  } else if (decision.intervened) {
+    note.innerHTML = `<span class="flag">护栏干预</span>：模型提议 ${FDIR_LABEL[decision.proposed]}（致命），改为 ${FDIR_LABEL[decision.executed]}`;
+  } else {
+    note.textContent = `模型选择 ${FDIR_LABEL[decision.executed]}，与规划器${decision.executed === decision.autopilot_best ? "一致" : "不同但安全"}。`;
+  }
+  if (decision) {
+    const off = decision.gap_offset;
+    $("f-g-off").style.width = Math.min(100, Math.abs(off) / 5 * 100).toFixed(1) + "%";
+    $("f-g-off-v").textContent = Math.abs(off).toFixed(1) + " 格" + (off > 0 ? "（偏下）" : "（偏上）");
+    $("f-g-dist").style.width = Math.min(100, decision.pipe_distance / 9 * 100).toFixed(1) + "%";
+    $("f-g-dist-v").textContent = decision.pipe_distance.toFixed(1) + " 格";
+  }
+}
+
+function drawFlappy(snap) {
+  const canvas = $("fboard");
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
+  const css = getComputedStyle(document.documentElement);
+  ctx.fillStyle = css.getPropertyValue("--board").trim();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = css.getPropertyValue("--aqua").trim();
+  const pw = snap.pipe_w * cw;
+  for (const p of snap.pipes) {
+    const x = p.x * cw - pw / 2;
+    const topH = (p.gap_y - snap.gap / 2) * ch;
+    const botY = (p.gap_y + snap.gap / 2) * ch;
+    ctx.beginPath(); ctx.roundRect(x, -8, pw, topH + 8, 4); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x, botY, pw, canvas.height - botY + 8, 4); ctx.fill();
+  }
+  const bx = snap.bird_x * cw, by = snap.y * ch, br = snap.bird_r * cw * 1.35;
+  ctx.fillStyle = css.getPropertyValue("--orange").trim();
+  ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = css.getPropertyValue("--board").trim();
+  ctx.beginPath(); ctx.arc(bx + br * 0.38, by - br * 0.3, br * 0.2, 0, Math.PI * 2); ctx.fill();
+}
+
+function updateFlappyStats(snap, stats, decision) {
+  $("f-s-score").textContent = snap.score;
+  $("f-s-steps").textContent = stats ? stats.steps : 0;
+  $("f-s-int").textContent = stats ? stats.interventions : 0;
+  if (decision) $("f-s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
+  if (stats && stats.steps > 0) $("f-s-flap").textContent = pct(stats.flaps / stats.steps);
+  const f = state.flappy;
+  if (f && f.lastTick) {
+    const dt = (performance.now() - f.lastTick) / 1000;
+    if (dt > 0) $("f-s-mps").innerHTML = (1 / dt).toFixed(1) + "<small> 步/s</small>";
+  }
+}
+
+async function flappyNew() {
+  hide("flappy-error");
+  $("flappy-new").disabled = true;
+  $("flappy-new").textContent = "加载中…";
+  try {
+    const data = await api("/api/flappy/new", {
+      model: state.current,
+      guarded: $("f-guarded").checked,
+    });
+    state.flappy = { session: data.session, playing: true, gen: (state.flappy ? state.flappy.gen : 0) + 1, lastTick: 0 };
+    $("f-overlay").hidden = true;
+    $("flappy-toggle").disabled = false;
+    $("flappy-toggle").textContent = "暂停";
+    initFlappyRows();
+    updateFlappyPanel(null);
+    drawFlappy(data.state);
+    updateFlappyStats(data.state, null, null);
+    refreshInfo(true);
+    flappyLoop(state.flappy.gen);
+  } catch (err) {
+    showError("flappy-error", err.message);
+  } finally {
+    $("flappy-new").disabled = false;
+    $("flappy-new").textContent = "新开一局";
+  }
+}
+
+async function flappyLoop(gen) {
+  const f = state.flappy;
+  if (!f || f.gen !== gen || !f.playing) return;
+  const speed = Number($("f-speed").value);
+  const target = speed >= 11 ? 0 : 1000 / speed;
+  const t0 = performance.now();
+  let data;
+  try {
+    data = await api("/api/flappy/step", { session: f.session });
+  } catch (err) {
+    showError("flappy-error", err.message);
+    f.playing = false;
+    $("flappy-toggle").disabled = true;
+    return;
+  }
+  if (!state.flappy || state.flappy.gen !== gen) return;
+  if (data.decision) updateFlappyPanel(data.decision);
+  drawFlappy(data.state);
+  updateFlappyStats(data.state, data.stats, data.decision);
+  f.lastTick = t0;
+  if (data.done) {
+    f.playing = false;
+    $("flappy-toggle").disabled = true;
+    const reason = { pipe: "撞上管子", floor: "落地" }[data.state.death_reason] || data.state.death_reason;
+    $("f-overlay-title").textContent = "本局结束：" + reason;
+    $("f-overlay-sub").textContent = `得分 ${data.state.score}，共 ${data.state.steps} 次决策。关闭护栏时模型独立飞行。`;
+    $("f-overlay").hidden = false;
+    return;
+  }
+  const elapsed = performance.now() - t0;
+  setTimeout(() => flappyLoop(gen), Math.max(0, target - elapsed));
+}
+
+function flappyToggle() {
+  const f = state.flappy;
+  if (!f) return;
+  f.playing = !f.playing;
+  $("flappy-toggle").textContent = f.playing ? "暂停" : "继续";
+  if (f.playing) flappyLoop(f.gen);
+}
+
 /* ---------- shell ---------- */
 
 function showError(id, msg) { const el = $(id); el.textContent = msg; el.hidden = false; }
 function hide(id) { $(id).hidden = true; }
 
 function switchView(name) {
-  $("view-decide").hidden = name !== "decide";
-  $("view-snake").hidden = name !== "snake";
-  $("nav-decide").classList.toggle("active", name === "decide");
-  $("nav-snake").classList.toggle("active", name === "snake");
+  for (const v of ["decide", "snake", "flappy"]) {
+    $("view-" + v).hidden = name !== v;
+    $("nav-" + v).classList.toggle("active", name === v);
+  }
 }
 
 $("nav-decide").onclick = () => switchView("decide");
 $("nav-snake").onclick = () => switchView("snake");
+$("nav-flappy").onclick = () => switchView("flappy");
 $("run").onclick = runPredict;
 $("load-sample").onclick = loadSample;
 $("snake-new").onclick = snakeNew;
 $("snake-toggle").onclick = snakeToggle;
+$("flappy-new").onclick = flappyNew;
+$("flappy-toggle").onclick = flappyToggle;
 
 initDirRows();
+initFlappyRows();
 (async () => { await refreshInfo(); if (state.current) loadSample(); })();
 setInterval(() => refreshInfo(true), 15000);
 </script>
