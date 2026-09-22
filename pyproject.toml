@@ -30,7 +30,7 @@ dev = ["pytest>=8", "ruff>=0.12", "build>=1"]
 laya-axera = "laya_axera.cli:main"
 
 [project.urls]
-Repository = "https://github.com/ZHEQIUSHUI/laya-axera"
+Repository = "https://github.com/AXERA-TECH/laya-axera"
 Models = "https://huggingface.co/AXERA-TECH/Laya"
 Upstream = "https://github.com/NandhaKishorM/laya"
 MLXPort = "https://github.com/mizorewww/laya-mlx"

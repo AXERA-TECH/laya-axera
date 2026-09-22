@@ -36,7 +36,7 @@ The provider is selected automatically; pass `provider=` to force one.
 ## Install
 
 ```bash
-git clone https://github.com/ZHEQIUSHUI/laya-axera.git
+git clone https://github.com/AXERA-TECH/laya-axera.git
 cd laya-axera
 pip install -e '.[web]'
 ```

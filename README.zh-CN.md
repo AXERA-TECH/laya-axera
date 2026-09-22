@@ -33,7 +33,7 @@ Provider 自动选择，也可通过 `provider=` 强制指定。
 ## 安装
 
 ```bash
-git clone https://github.com/ZHEQIUSHUI/laya-axera.git
+git clone https://github.com/AXERA-TECH/laya-axera.git
 cd laya-axera
 pip install -e '.[web]'
 ```
