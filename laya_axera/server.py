@@ -120,6 +120,12 @@ class FlappyNewBody(BaseModel):
     guarded: bool = True
 
 
+class TetrisPlaceBody(BaseModel):
+    session: str
+    rotation: int
+    col: int
+
+
 def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> FastAPI:
     registry = ModelRegistry(checkpoints, device_id, provider)
     sessions: Dict[str, Dict[str, Any]] = {}
@@ -291,6 +297,41 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
         stats["inference_ms_total"] += decision.inference_ms
         return {
             "decision": decision.to_dict(),
+            "state": game.snapshot(),
+            "stats": stats,
+            "done": not game.alive,
+        }
+
+    @app.post("/api/tetris/place")
+    def tetris_place(body: TetrisPlaceBody):
+        """Manual mode: the player places, the model rates the move and shows its own pick."""
+        with sessions_lock:
+            entry = tetris_sessions.get(body.session)
+        if entry is None:
+            raise HTTPException(404, "Unknown or expired tetris session")
+        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+        if not game.alive:
+            return {"state": game.snapshot(), "stats": stats, "done": True}
+        user_cand = game.evaluate(body.rotation, body.col)
+        if user_cand is None:
+            raise HTTPException(400, "Illegal placement for the current piece")
+        try:
+            rated, inf_a, _ = policy.rate(game.candidates())
+            your, inf_b, _ = policy.rate([user_cand])
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(500, str(exc))
+        model_pick = max(range(len(rated)), key=lambda i: rated[i]["p_good"])
+        match = your[0]["cells"] == rated[model_pick]["cells"]
+        game.apply(user_cand)
+        stats["pieces"] += 1
+        stats["matches"] = stats.get("matches", 0) + int(match)
+        stats["inference_ms_total"] += inf_a + inf_b
+        return {
+            "your": your[0],
+            "candidates": rated,
+            "model_pick": model_pick,
+            "match": match,
+            "inference_ms": round(inf_a + inf_b, 3),
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive,

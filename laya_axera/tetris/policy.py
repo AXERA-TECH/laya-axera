@@ -53,21 +53,26 @@ class LayaTetrisPolicy:
         self.agent = agent
         self.guarded = guarded
 
-    def decide(self, game):
-        started = time.perf_counter()
-        candidates = game.candidates()
-        if not candidates:
-            raise RuntimeError("No legal placement for the current piece")
+    def rate(self, cands):
+        """Rate placements independently; returns (rated, inference_ms, input_tokens)."""
         inference_ms = 0.0
         input_tokens = 0
         rated = []
-        for cand in candidates:
+        for cand in cands:
             statement = describe(cand)
             output = self.agent.predict(statement, {"q": {"type": "noul", "instructions": QUESTION}})
             answer = output["answers"]["q"]
             inference_ms += answer["npu_latency_ms"]
             input_tokens += output["usage"]["input_tokens"]
             rated.append({**cand, "statement": statement, "p_good": answer["noul"]})
+        return rated, inference_ms, input_tokens
+
+    def decide(self, game):
+        started = time.perf_counter()
+        candidates = game.candidates()
+        if not candidates:
+            raise RuntimeError("No legal placement for the current piece")
+        rated, inference_ms, input_tokens = self.rate(candidates)
         proposed = max(range(len(rated)), key=lambda i: rated[i]["p_good"])
         executed = proposed
         if self.guarded and rated[proposed]["height"] > DANGER_HEIGHT:

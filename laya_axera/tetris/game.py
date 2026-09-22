@@ -104,39 +104,49 @@ class TetrisGame:
             board.insert(0, [0] * WIDTH)
         return board, len(full)
 
-    def candidates(self):
-        """Heuristic-ranked shortlist of distinct placements for the current piece."""
+    def evaluate(self, rotation, col):
+        """Metrics for one drop placement of the current piece, or None if illegal."""
+        rotations = SHAPES[self.current]
+        if not 0 <= rotation < len(rotations):
+            return None
+        cells = rotations[rotation]
+        if not 0 <= col <= WIDTH - 1 - max(x for x, _ in cells):
+            return None
+        row = self._drop_row(cells, col)
+        if row is None:
+            return None
         holes_before = _count_holes(self.board)
         agg_before = sum(_column_heights(self.board))
+        board_after, cleared = self._simulate(cells, col, row)
+        heights = _column_heights(board_after)
+        holes_delta = _count_holes(board_after) - holes_before
+        bump = sum(abs(a - b) for a, b in zip(heights, heights[1:]))
+        score = (
+            3.0 * cleared
+            - 5.0 * holes_delta
+            - 0.4 * (sum(heights) - agg_before)
+            - 0.2 * bump
+        )
+        return {
+            "rotation": rotation,
+            "col": col,
+            "row": row,
+            "cells": [[col + x, row + y] for x, y in cells],
+            "lines": cleared,
+            "holes": max(0, holes_delta),
+            "height": max(heights),
+            "heuristic": round(score, 2),
+        }
+
+    def candidates(self):
+        """Heuristic-ranked shortlist of distinct placements for the current piece."""
         scored = []
         for rotation, cells in enumerate(SHAPES[self.current]):
             max_x = max(x for x, _ in cells)
             for col in range(WIDTH - max_x):
-                row = self._drop_row(cells, col)
-                if row is None:
-                    continue
-                board_after, cleared = self._simulate(cells, col, row)
-                heights = _column_heights(board_after)
-                holes_delta = _count_holes(board_after) - holes_before
-                bump = sum(abs(a - b) for a, b in zip(heights, heights[1:]))
-                score = (
-                    3.0 * cleared
-                    - 5.0 * holes_delta
-                    - 0.4 * (sum(heights) - agg_before)
-                    - 0.2 * bump
-                )
-                scored.append(
-                    {
-                        "rotation": rotation,
-                        "col": col,
-                        "row": row,
-                        "cells": [[col + x, row + y] for x, y in cells],
-                        "lines": cleared,
-                        "holes": max(0, holes_delta),
-                        "height": max(heights),
-                        "heuristic": round(score, 2),
-                    }
-                )
+                cand = self.evaluate(rotation, col)
+                if cand is not None:
+                    scored.append(cand)
         scored.sort(key=lambda c: c["heuristic"], reverse=True)
         shortlist, seen = [], set()
         for cand in scored:  # prefer distinct outcomes so the rating is a real choice

@@ -169,6 +169,12 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
 .t-cand .val { font-size: 12.5px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
 .t-cand.chosen .val { color: var(--ink); font-weight: 650; }
 .t-cands-label { font-size: 12.5px; color: var(--ink-3); margin-bottom: 4px; }
+.t-cand.pulse { background: var(--blue-soft); border-radius: 4px; }
+.mode-seg { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.mode-seg button { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 13.5px; padding: 3px 12px; border-radius: 4px; cursor: pointer; }
+.mode-seg button.active { background: var(--blue-soft); color: var(--ink); font-weight: 600; }
+.dpad { display: flex; gap: 8px; margin: 0 0 14px; }
+.dpad .btn { flex: 1; padding: 10px 0; font-weight: 650; font-size: 15px; }
 
 /* ---- snake view ---- */
 .snake-grid { display: grid; grid-template-columns: minmax(300px, 1fr) 340px; gap: 32px; align-items: start; }
@@ -345,19 +351,29 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
         <div class="controls">
           <button class="btn primary" id="tetris-new">新开一局</button>
           <button class="btn" id="tetris-toggle" disabled>暂停</button>
+          <span class="mode-seg">
+            <button id="t-mode-auto" class="active">模型</button>
+            <button id="t-mode-manual">手动</button>
+          </span>
           <label>速度
             <input type="range" id="t-speed" min="1" max="11" value="2" aria-label="每秒方块数，最右为不限速">
           </label>
           <label><input type="checkbox" id="t-guarded" checked> 安全护栏</label>
         </div>
-        <div class="t-cands-label">候选落点与模型评分 P(好落点)</div>
+        <div class="dpad" id="t-dpad" hidden>
+          <button class="btn" id="t-left" aria-label="左移">◀</button>
+          <button class="btn" id="t-right" aria-label="右移">▶</button>
+          <button class="btn" id="t-rotate">A 旋转</button>
+          <button class="btn" id="t-drop">B 速降</button>
+        </div>
+        <div class="t-cands-label" id="t-cands-label">候选落点与模型评分 P(好落点)</div>
         <div id="t-cands"></div>
         <div class="decision-note" id="t-note">每块方块：启发式筛 4 个候选，模型逐个 noul 评分，选概率最高的。</div>
         <div class="stats">
           <div class="stat"><div class="slabel">得分</div><div class="sval" id="t-s-score">0</div></div>
           <div class="stat"><div class="slabel">消行</div><div class="sval" id="t-s-lines">0</div></div>
           <div class="stat"><div class="slabel">方块数</div><div class="sval" id="t-s-pieces">0</div></div>
-          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="t-s-int">0</div></div>
+          <div class="stat"><div class="slabel" id="t-s-int-label">护栏干预</div><div class="sval" id="t-s-int">0</div></div>
           <div class="stat"><div class="slabel">单块推理</div><div class="sval" id="t-s-inf">–<small> ms</small></div></div>
           <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="t-s-mps">–<small> 块/s</small></div></div>
         </div>
@@ -863,6 +879,13 @@ function buildTetrisPanel(cands) {
   });
 }
 
+function pulseRow(i) {
+  const row = $("t-cands").children[i];
+  if (!row) return;
+  row.classList.add("pulse");
+  setTimeout(() => row.classList.remove("pulse"), 280);
+}
+
 function revealTetrisCand(i, c) {
   const row = $("t-cands").children[i];
   if (!row) return;
@@ -925,6 +948,15 @@ function renderTetrisFrame(snap, opts) {
     ctx.save();
     ctx.font = "600 13px system-ui, sans-serif";
     for (const g of opts.ghosts) {
+      const pulseAge = g.pulseT ? performance.now() - g.pulseT : 1e9;
+      if (pulseAge < 240) {
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.fillStyle = css.getPropertyValue("--blue").trim();
+        ctx.globalAlpha = 0.5 * (1 - pulseAge / 240);
+        for (const [x, y] of g.cells) ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
+        ctx.restore();
+      }
       ctx.setLineDash(g.chosen ? [] : [5, 4]);
       ctx.lineWidth = g.chosen ? 2.5 : 1.5;
       const ink = css.getPropertyValue("--ink").trim();
@@ -1005,7 +1037,7 @@ function pieceFrame(prevSnap, letter, rot, col, rowFloat, ghosts) {
   });
 }
 
-async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghosts) {
+async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghosts, startRow = 0) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const rots = T_SHAPES[letter];
   const W = prevSnap.width;
@@ -1018,7 +1050,7 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghost
   const rotMs = Math.max(60, (budgetMs * 0.22) / rotFrames);
   for (let r = 0; r <= cand.rotation; r++) {
     if (isStale()) return;
-    pieceFrame(prevSnap, letter, r, clampCol(spawnCol, r), 0, ghosts);
+    pieceFrame(prevSnap, letter, r, clampCol(spawnCol, r), startRow, ghosts);
     await sleep(rotMs);
   }
 
@@ -1030,20 +1062,20 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghost
     const dir = cand.col > fromCol ? 1 : -1;
     for (let i = 1; i <= dist; i++) {
       if (isStale()) return;
-      pieceFrame(prevSnap, letter, cand.rotation, fromCol + dir * i, (2.5 * i) / dist, ghosts);
+      pieceFrame(prevSnap, letter, cand.rotation, fromCol + dir * i, startRow + (0.8 * i) / dist, ghosts);
       await sleep(stepMs);
     }
   }
 
   // Phase C: accelerating drop to the resting row.
-  const startRow = dist > 0 ? 2.5 : 0;
+  const fallFrom = dist > 0 ? startRow + 0.8 : startRow;
   const dropMs = Math.max(140, budgetMs * 0.5);
   await new Promise((resolve) => {
     const t0 = performance.now();
     const frame = (now) => {
       if (isStale()) return resolve();
       const p = Math.min(1, (now - t0) / dropMs);
-      pieceFrame(prevSnap, letter, cand.rotation, cand.col, startRow + (cand.row - startRow) * p * p, ghosts);
+      pieceFrame(prevSnap, letter, cand.rotation, cand.col, fallFrom + (cand.row - fallFrom) * p * p, ghosts);
       if (p < 1) requestAnimationFrame(frame);
       else resolve();
     };
@@ -1074,6 +1106,7 @@ function updateTetrisStats(snap, stats, decision) {
 
 async function tetrisNew() {
   hide("tetris-error");
+  manualStop();
   $("tetris-new").disabled = true;
   $("tetris-new").textContent = "加载中…";
   try {
@@ -1089,7 +1122,12 @@ async function tetrisNew() {
     drawTetris(data.state, null);
     updateTetrisStats(data.state, null, null);
     refreshInfo(true);
-    tetrisLoop(state.tetris.gen);
+    if (state.tetrisMode === "manual") {
+      $("tetris-toggle").disabled = true;
+      manualSpawn();
+    } else {
+      tetrisLoop(state.tetris.gen);
+    }
   } catch (err) {
     showError("tetris-error", err.message);
   } finally {
@@ -1125,33 +1163,46 @@ async function tetrisLoop(gen) {
       const ghosts = dec.candidates.map((c, i) => ({
         cells: c.cells, mark: T_MARKS[i], revealed: false, chosen: false,
       }));
-      const spawnGhostFrame = () => pieceFrame(
-        prev, prev.current, 0,
-        Math.max(0, Math.floor((prev.width - (Math.max(...T_SHAPES[prev.current][0].map(c => c[0])) + 1)) / 2)),
-        0, ghosts);
-      // 1) new piece appears, candidates outlined but unscored
+      const spawnCol = Math.max(0, Math.floor(
+        (prev.width - (Math.max(...T_SHAPES[prev.current][0].map(c => c[0])) + 1)) / 2));
+      const DRIFT = 2.2; // the fresh piece keeps sinking while the model deliberates
       buildTetrisPanel(dec.candidates);
       $("t-note").textContent = "模型正在逐个评估候选落点…";
-      spawnGhostFrame();
-      await sleep(budget * 0.12);
+      const showMs = budget * 0.58;
+      const n = dec.candidates.length;
+      const events = dec.candidates.map((_, i) => ({ at: showMs * (0.12 + (0.62 * i) / n), fired: false }));
+      let winnerFired = false;
+      await new Promise((resolve) => {
+        const t0 = performance.now();
+        const frame = (now) => {
+          if (isStale()) return resolve();
+          const el = now - t0;
+          events.forEach((ev, i) => {
+            if (!ev.fired && el >= ev.at) {
+              ev.fired = true;
+              ghosts[i].revealed = true;
+              ghosts[i].pulseT = now;
+              revealTetrisCand(i, dec.candidates[i]);
+              pulseRow(i);
+            }
+          });
+          if (!winnerFired && el >= showMs * 0.86) {
+            winnerFired = true;
+            ghosts[dec.executed].chosen = true;
+            ghosts[dec.executed].pulseT = now;
+            finalizeTetrisPanel(dec);
+            pulseRow(dec.executed);
+          }
+          pieceFrame(prev, prev.current, 0, spawnCol, DRIFT * Math.min(1, el / showMs), ghosts);
+          if (el < showMs + 240) requestAnimationFrame(frame);
+          else resolve();
+        };
+        requestAnimationFrame(frame);
+      });
       if (isStale()) return;
-      // 2) reveal each rating in turn, board ghost lighting up with its bar
-      for (let i = 0; i < dec.candidates.length; i++) {
-        ghosts[i].revealed = true;
-        revealTetrisCand(i, dec.candidates[i]);
-        spawnGhostFrame();
-        await sleep((budget * 0.36) / dec.candidates.length);
-        if (isStale()) return;
-      }
-      // 3) winner highlighted
-      ghosts[dec.executed].chosen = true;
-      finalizeTetrisPanel(dec);
-      spawnGhostFrame();
-      await sleep(budget * 0.1);
-      if (isStale()) return;
-      // 4) rotate, slide, drop into the winning ghost
+      // rotate, slide, drop into the winning ghost, continuing from the drift row
       await animatePlacement(prev, cand, prev.current, budget * 0.42, isStale,
-        [ghosts[dec.executed]]);
+        [ghosts[dec.executed]], DRIFT);
       if (isStale()) return;
       const rows = fullRowsAfter(prev, cells);
       if (rows.length) {
@@ -1187,6 +1238,191 @@ function tetrisToggle() {
   $("tetris-toggle").textContent = t.playing ? "暂停" : "继续";
   if (t.playing) tetrisLoop(t.gen);
 }
+
+/* ---------- tetris manual mode ---------- */
+
+const man = { active: false, letter: null, rot: 0, col: 0, rowFloat: 0, timer: null };
+state.tetrisMode = "auto";
+
+function jsFits(board, cells, col, row) {
+  for (const [x, y] of cells) {
+    const bx = col + x, by = row + y;
+    if (bx < 0 || bx >= 10 || by < 0 || by >= 20 || board[by][bx]) return false;
+  }
+  return true;
+}
+
+function jsDropRow(board, cells, col) {
+  if (!jsFits(board, cells, col, 0)) return null;
+  let r = 0;
+  while (jsFits(board, cells, col, r + 1)) r++;
+  return r;
+}
+
+function manualLanding(rot = man.rot, col = man.col) {
+  return jsDropRow(state._tetrisSnap.board, T_SHAPES[man.letter][rot], col);
+}
+
+function manualRender() {
+  const land = manualLanding();
+  const ghosts = land === null ? [] : [{
+    cells: T_SHAPES[man.letter][man.rot].map(([x, y]) => [man.col + x, land + y]),
+    mark: "◎", revealed: true, chosen: false,
+  }];
+  pieceFrame(state._tetrisSnap, man.letter, man.rot, man.col, man.rowFloat, ghosts);
+}
+
+function manualSpawn() {
+  const prev = state._tetrisSnap;
+  if (!prev || !prev.alive || !state.tetris) return;
+  man.letter = prev.current;
+  man.rot = 0;
+  const w = Math.max(...T_SHAPES[man.letter][0].map((c) => c[0])) + 1;
+  man.col = Math.max(0, Math.floor((prev.width - w) / 2));
+  man.rowFloat = 0;
+  man.active = true;
+  $("t-note").textContent = "◀▶ 移动 · A 旋转 · B 速降（键盘：方向键 + 空格）";
+  clearInterval(man.timer);
+  man.timer = setInterval(manualGravity, 650);
+  manualRender();
+}
+
+function manualStop() {
+  man.active = false;
+  clearInterval(man.timer);
+}
+
+function manualGravity() {
+  if (!man.active) return;
+  const land = manualLanding();
+  if (land === null || man.rowFloat + 1 >= land) {
+    man.rowFloat = land === null ? man.rowFloat : land;
+    manualRender();
+    manualLock();
+  } else {
+    man.rowFloat += 1;
+    manualRender();
+  }
+}
+
+function manualTry(rot, col) {
+  if (!man.active) return;
+  const cells = T_SHAPES[man.letter][rot];
+  const maxX = Math.max(...cells.map((c) => c[0]));
+  if (col < 0 || col > 9 - maxX) return;
+  const land = jsDropRow(state._tetrisSnap.board, cells, col);
+  if (land === null || land < man.rowFloat) return;
+  man.rot = rot;
+  man.col = col;
+  manualRender();
+}
+
+function manualRotate() {
+  if (!man.active) return;
+  const rot = (man.rot + 1) % T_SHAPES[man.letter].length;
+  const maxX = Math.max(...T_SHAPES[man.letter][rot].map((c) => c[0]));
+  manualTry(rot, Math.min(man.col, 9 - maxX));
+}
+
+async function manualLock() {
+  if (!man.active) return;
+  manualStop();
+  const prev = state._tetrisSnap;
+  const fromRow = man.rowFloat;
+  let data;
+  try {
+    data = await api("/api/tetris/place", { session: state.tetris.session, rotation: man.rot, col: man.col });
+  } catch (err) {
+    showError("tetris-error", err.message);
+    return;
+  }
+  const your = data.your;
+  // finish the fall from wherever the player left it
+  await new Promise((resolve) => {
+    const dropMs = 160;
+    const t0 = performance.now();
+    const frame = (now) => {
+      const p = Math.min(1, (now - t0) / dropMs);
+      pieceFrame(prev, man.letter, man.rot, man.col, fromRow + (your.row - fromRow) * p * p);
+      if (p < 1) requestAnimationFrame(frame);
+      else resolve();
+    };
+    requestAnimationFrame(frame);
+  });
+  const rows = fullRowsAfter(prev, your.cells);
+  if (rows.length) {
+    renderTetrisFrame(prev, { piece: { cells: your.cells, colorIdx: T_SHAPE_IDX[man.letter] ?? 0, dyPx: 0 }, flashRows: rows });
+    await sleep(130);
+  }
+  drawTetris(data.state, your.cells);
+  renderManualPanel(data);
+  updateTetrisStats(data.state, data.stats, { inference_ms: data.inference_ms });
+  $("t-s-int").textContent = data.stats.matches || 0;
+  if (data.done) {
+    $("t-overlay-title").textContent = "本局结束：堆到顶了";
+    $("t-overlay-sub").textContent = `得分 ${data.state.score}，消 ${data.state.lines} 行，与模型选择一致 ${data.stats.matches || 0}/${data.state.pieces} 次。`;
+    $("t-overlay").hidden = false;
+    return;
+  }
+  if (state.tetrisMode === "manual") manualSpawn();
+}
+
+function renderManualPanel(data) {
+  const box = $("t-cands");
+  box.innerHTML = "";
+  const mkRow = (label, c, chosen, starred) => {
+    const row = document.createElement("div");
+    row.className = "t-cand" + (chosen ? " chosen" : "");
+    row.innerHTML = `<span class="opt" title="${esc(c.statement)}">${chosen ? "✓ " : ""}${starred ? "★ " : ""}${label} ${candText(c)}</span>
+      <span class="track"><span class="fill"></span></span>
+      <span class="val">${pct(c.p_good)}</span>`;
+    requestAnimationFrame(() => { row.querySelector(".fill").style.width = (c.p_good * 100).toFixed(1) + "%"; });
+    box.appendChild(row);
+  };
+  mkRow("你", data.your, true, false);
+  data.candidates.forEach((c, i) => mkRow(T_MARKS[i], c, false, i === data.model_pick));
+  $("t-note").innerHTML = data.match
+    ? "和模型选得一样。下一块：◀▶ 移动 · A 旋转 · B 速降"
+    : `模型更喜欢 ${T_MARKS[data.model_pick]}（${pct(data.candidates[data.model_pick].p_good)}）。下一块继续。`;
+}
+
+function setTetrisMode(mode) {
+  if (state.tetrisMode === mode) return;
+  state.tetrisMode = mode;
+  $("t-mode-auto").classList.toggle("active", mode === "auto");
+  $("t-mode-manual").classList.toggle("active", mode === "manual");
+  $("t-dpad").hidden = mode !== "manual";
+  $("t-cands-label").textContent = mode === "manual" ? "你的落点 vs 模型的候选（★ 为模型首选）" : "候选落点与模型评分 P(好落点)";
+  $("t-s-int-label").textContent = mode === "manual" ? "与模型一致" : "护栏干预";
+  $("t-s-int").textContent = "0";
+  if (mode === "manual") {
+    if (state.tetris) {
+      state.tetris.playing = false;
+      $("tetris-toggle").disabled = true;
+    }
+    if (state.tetris && state._tetrisSnap && state._tetrisSnap.alive) manualSpawn();
+  } else {
+    manualStop();
+    if (state.tetris && state._tetrisSnap && state._tetrisSnap.alive) {
+      drawTetris(state._tetrisSnap, null);
+      state.tetris.playing = true;
+      $("tetris-toggle").disabled = false;
+      $("tetris-toggle").textContent = "暂停";
+      tetrisLoop(state.tetris.gen);
+    }
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if ($("view-tetris").hidden || state.tetrisMode !== "manual" || !man.active) return;
+  const k = e.key;
+  if (k === "ArrowLeft") manualTry(man.rot, man.col - 1);
+  else if (k === "ArrowRight") manualTry(man.rot, man.col + 1);
+  else if (k === "ArrowUp" || k === "a" || k === "A") manualRotate();
+  else if (k === "ArrowDown" || k === " " || k === "b" || k === "B") manualLock();
+  else return;
+  e.preventDefault();
+});
 
 /* ---------- shell ---------- */
 
@@ -1235,6 +1471,12 @@ $("flappy-new").onclick = flappyNew;
 $("flappy-toggle").onclick = flappyToggle;
 $("tetris-new").onclick = tetrisNew;
 $("tetris-toggle").onclick = tetrisToggle;
+$("t-mode-auto").onclick = () => setTetrisMode("auto");
+$("t-mode-manual").onclick = () => setTetrisMode("manual");
+$("t-left").onclick = () => manualTry(man.rot, man.col - 1);
+$("t-right").onclick = () => manualTry(man.rot, man.col + 1);
+$("t-rotate").onclick = manualRotate;
+$("t-drop").onclick = manualLock;
 
 initDirRows();
 initFlappyRows();
