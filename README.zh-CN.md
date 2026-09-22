@@ -6,7 +6,7 @@
 [AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Laya) 的 AXModel checkpoint，
 并提供网页演示：决策台 + 每一步都由 Laya 实时决策的贪吃蛇。
 
-单张 AX650N（AXCL）上 multilingual checkpoint **约 31 ms/问题**，**0 个输出 token**。
+单张 AX8850（AXCL）上 multilingual checkpoint **约 31 ms/问题**，**0 个输出 token**。
 不依赖 PyTorch / Transformers 运行时 / 云端 API —— 分词用 Hugging Face Rust tokenizer，
 编码器全部在 NPU 上执行。
 
@@ -25,7 +25,7 @@ Laya 是双向决策模型：对文本或结构化状态回答受约束的问题
 
 | 平台 | Provider | 说明 |
 |---|---|---|
-| AX650 / AX8850 板端（片上） | `AxEngineExecutionProvider` | aarch64, NPU3 |
+| AX8850 板端（片上） | `AxEngineExecutionProvider` | aarch64, NPU3 |
 | x86/arm64 主机 + AXCL 卡（PCIe / M.2） | `AXCLRTExecutionProvider` | `device_id` 选卡 |
 
 Provider 自动选择，也可通过 `provider=` 强制指定。
@@ -56,7 +56,7 @@ hf download AXERA-TECH/Laya --local-dir models/Laya
 | `multilingual/` | mmBERT-base | 片上约 28 ms，AXCL 约 31 ms | 中文及多语言输入 |
 | `typed-decisions/` | ModernBERT-large | 片上约 70 ms，AXCL 约 74 ms | 发票、安全、Agent 轨迹 |
 
-延迟用 `python examples/bench.py <checkpoint>` 实测：片上为 AX650 开发板
+延迟用 `python examples/bench.py <checkpoint>` 实测：片上为 AX8850 开发板
 （multilingual 28.8 ms、english 71.1 ms，PyAXEngine，模型经 NFS 挂载），AXCL 为空闲
 x86 主机卡。贪吃蛇每步问 3 个问题，单步耗时约为 3 倍单问题延迟。
 
@@ -110,14 +110,14 @@ laya-axera serve --root models/Laya --port 8010
 - **Flappy Bird** —— 每步一个二选一决策（拍翅/滑翔），单问题约 30ms：规划器描述两个动作的后果，模型选择，护栏只纠正致命提议。
 - **贪吃蛇** —— laya-mlx 贪吃蛇演示的网页版。每一步向驻留 checkpoint 问三个问题
   （走向 / 风险 / 食物），确定性的循环安全护栏会纠正不安全的提议并统计每次干预。
-  multilingual + 单张 AXCL AX650N 约 10 步/秒。
+  multilingual + 单张 AXCL AX8850 约 10 步/秒。
 
 接口：`GET /api/info`、`GET /api/samples/{name}`、`POST /api/predict`、
 `POST /api/snake/new`、`POST /api/snake/step`。
 
 ## 与板端验证输出的一致性
 
-三个 checkpoint 均复现了模型包内 `axllm` 在 AX650 板上录制的 `sample_output.json`：
+三个 checkpoint 均复现了模型包内 `axllm` 在 AX8850 板上录制的 `sample_output.json`：
 选中标签完全一致，概率对齐到小数点后 4 位（如 multilingual：billing 1.0000、
 urgency 1.9359、refund 0.9925、churn 0.9400）。
 

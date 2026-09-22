@@ -1,6 +1,6 @@
 """Laya typed-decision inference on AXERA NPUs through PyAXEngine.
 
-The packaged AX650 graphs are fixed-shape: batch 1, 256 tokens, up to 4 options,
+The packaged AX8850 graphs are fixed-shape: batch 1, 256 tokens, up to 4 options,
 one NPU forward per question. Prompt construction, calibration and the result
 schema follow upstream Laya (see NOTICE).
 """
@@ -42,7 +42,7 @@ class Agent:
     (`english/`, `multilingual/` or `typed-decisions/`), containing
     `config.json`, `model.axmodel` and `tokenizer/`.
 
-    The provider is selected automatically: the on-chip runtime on an AX650
+    The provider is selected automatically: the on-chip runtime on an AX8850
     board, or the AXCL runtime on a host with PCIe/M.2 cards (`device_id`
     picks the card). Pass `provider` to force one.
     """
@@ -78,7 +78,7 @@ class Agent:
             else:
                 raise RuntimeError(
                     f"No usable NPU provider; PyAXEngine reports {available}. "
-                    "Run on an AX650 board or on a host with AXCL cards."
+                    "Run on an AX8850 board or on a host with AXCL cards."
                 )
         elif provider not in available:
             raise RuntimeError(f"Provider {provider!r} is unavailable; found {available}")

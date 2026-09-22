@@ -349,7 +349,7 @@ async function refreshInfo(silent) {
     if (!state.current) state.current = info.default_model;
     const ready = info.models.find((m) => m.name === state.current && m.status === "ready");
     $("engine").innerHTML = ready
-      ? `<b>${ready.model_name}</b> 已驻留 &nbsp; ${ready.provider === "AXCLRTExecutionProvider" ? "AXCL 卡 " + ready.device_id : "AX650 片上"} &nbsp; laya-axera ${info.version}`
+      ? `<b>${ready.model_name}</b> 已驻留 &nbsp; ${ready.provider === "AXCLRTExecutionProvider" ? "AXCL 卡 " + ready.device_id : "AX8850 片上"} &nbsp; laya-axera ${info.version}`
       : `laya-axera ${info.version}`;
     renderChips();
   } catch (err) {

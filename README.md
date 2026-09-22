@@ -6,7 +6,7 @@ Python inference for the [AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Lay
 checkpoints through [PyAXEngine](https://github.com/AXERA-TECH/pyaxengine), with a web demo:
 a decision playground and a Snake game where every move is a real NPU decision.
 
-**~31 ms** per question with the multilingual checkpoint on one AX650N (AXCL). **0 output
+**~31 ms** per question with the multilingual checkpoint on one AX8850 (AXCL). **0 output
 tokens.** No PyTorch, no Transformers runtime, no cloud API — tokenization uses Hugging
 Face's Rust tokenizer and the encoder runs entirely on the NPU.
 
@@ -28,7 +28,7 @@ structured state in one forward pass, without generating text.
 
 | Platform | Provider | Notes |
 |---|---|---|
-| AX650 / AX8850 board (on-chip) | `AxEngineExecutionProvider` | aarch64, NPU3 |
+| AX8850 board (on-chip) | `AxEngineExecutionProvider` | aarch64, NPU3 |
 | x86/arm64 host + AXCL card (PCIe / M.2) | `AXCLRTExecutionProvider` | `device_id` picks the card |
 
 The provider is selected automatically; pass `provider=` to force one.
@@ -58,7 +58,7 @@ hf download AXERA-TECH/Laya --local-dir models/Laya
 | `multilingual/` | mmBERT-base | ~28 ms on-chip, ~31 ms AXCL | Chinese and other languages |
 | `typed-decisions/` | ModernBERT-large | ~70 ms on-chip, ~74 ms AXCL | Invoice, security, agent-trace workflows |
 
-Latencies measured with `python examples/bench.py <checkpoint>`: on-chip on an AX650 dev
+Latencies measured with `python examples/bench.py <checkpoint>`: on-chip on an AX8850 dev
 board (multilingual 28.8 ms, english 71.1 ms, PyAXEngine, models NFS-mounted), AXCL on an
 idle x86 host card. The Snake demo asks three questions per move, so one move costs about
 three question latencies.
@@ -123,7 +123,7 @@ laya-axera serve --root models/Laya --port 8010
 - **贪吃蛇 / Snake** — the laya-mlx Snake demo, served to the browser. Every move asks the
   resident checkpoint three questions (move / risk / food) on the NPU; a deterministic cycle
   safety shield can correct unsafe proposals, and every intervention is counted and shown.
-  About 10 moves/s with the multilingual checkpoint on one AXCL AX650N.
+  About 10 moves/s with the multilingual checkpoint on one AXCL AX8850.
 
 | Endpoint | Meaning |
 |---|---|
@@ -136,7 +136,7 @@ laya-axera serve --root models/Laya --port 8010
 ## Parity with the board-validated outputs
 
 All three checkpoints reproduce the packaged `sample_output.json` recorded with `axllm` on
-an AX650 board: identical selected labels, and probabilities matching to 4 decimals
+an AX8850 board: identical selected labels, and probabilities matching to 4 decimals
 (e.g. multilingual: billing 1.0000, urgency 1.9359, refund 0.9925, churn 0.9400).
 Run the checks yourself on a device:
 

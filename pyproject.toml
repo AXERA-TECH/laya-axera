@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "laya-axera"
 version = "0.1.0"
-description = "Laya typed-decision inference on AXERA NPUs (AX650 / AX8850) with PyAXEngine"
+description = "Laya typed-decision inference on AXERA NPUs (AX8850) with PyAXEngine"
 keywords = ["axera", "ax650", "npu", "laya", "typed-decisions", "decision-model", "pyaxengine"]
 classifiers = [
   "Development Status :: 4 - Beta",

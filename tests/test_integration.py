@@ -33,7 +33,7 @@ def test_sample_request_answers(agent):
 
 
 def test_matches_board_validated_choices(agent):
-    """The selected label must match the axllm output recorded on the AX650 board."""
+    """The selected label must match the axllm output recorded on the AX8850 board."""
     request_path = Path(MODEL_DIR) / "sample_request.json"
     expected_path = Path(MODEL_DIR) / "sample_output.json"
     if not (request_path.is_file() and expected_path.is_file()):
