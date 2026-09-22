@@ -174,7 +174,9 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
 .mode-seg button { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 13.5px; padding: 3px 12px; border-radius: 4px; cursor: pointer; }
 .mode-seg button.active { background: var(--blue-soft); color: var(--ink); font-weight: 600; }
 .dpad { display: flex; gap: 8px; margin: 0 0 14px; }
-.dpad .btn { flex: 1; padding: 10px 0; font-weight: 650; font-size: 15px; }
+.dpad .btn { flex: 1; padding: 10px 0; font-weight: 650; font-size: 15px; transition: transform 0.08s ease, background 0.08s ease; }
+.dpad .btn:disabled { opacity: 0.6; cursor: default; }
+.dpad .btn.pressed { opacity: 1; background: var(--blue); border-color: var(--blue); color: #fff; transform: scale(0.93); }
 
 /* ---- snake view ---- */
 .snake-grid { display: grid; grid-template-columns: minmax(300px, 1fr) 340px; gap: 32px; align-items: start; }
@@ -360,11 +362,11 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           </label>
           <label><input type="checkbox" id="t-guarded" checked> 安全护栏</label>
         </div>
-        <div class="dpad" id="t-dpad" hidden>
-          <button class="btn" id="t-left" aria-label="左移">◀</button>
-          <button class="btn" id="t-right" aria-label="右移">▶</button>
-          <button class="btn" id="t-rotate">A 旋转</button>
-          <button class="btn" id="t-drop">B 速降</button>
+        <div class="dpad" id="t-dpad">
+          <button class="btn" id="t-left" aria-label="左移" disabled>◀</button>
+          <button class="btn" id="t-right" aria-label="右移" disabled>▶</button>
+          <button class="btn" id="t-rotate" disabled>A 旋转</button>
+          <button class="btn" id="t-drop" disabled>B 速降</button>
         </div>
         <div class="t-cands-label" id="t-cands-label">候选落点与模型评分 P(好落点)</div>
         <div id="t-cands"></div>
@@ -879,6 +881,12 @@ function buildTetrisPanel(cands) {
   });
 }
 
+function pressFx(id) {
+  const b = $(id);
+  b.classList.add("pressed");
+  setTimeout(() => b.classList.remove("pressed"), 150);
+}
+
 function pulseRow(i) {
   const row = $("t-cands").children[i];
   if (!row) return;
@@ -1050,6 +1058,7 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghost
   const rotMs = Math.max(60, (budgetMs * 0.22) / rotFrames);
   for (let r = 0; r <= cand.rotation; r++) {
     if (isStale()) return;
+    if (r > 0) pressFx("t-rotate");
     pieceFrame(prevSnap, letter, r, clampCol(spawnCol, r), startRow, ghosts);
     await sleep(rotMs);
   }
@@ -1062,6 +1071,7 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghost
     const dir = cand.col > fromCol ? 1 : -1;
     for (let i = 1; i <= dist; i++) {
       if (isStale()) return;
+      pressFx(dir > 0 ? "t-right" : "t-left");
       pieceFrame(prevSnap, letter, cand.rotation, fromCol + dir * i, startRow + (0.8 * i) / dist, ghosts);
       await sleep(stepMs);
     }
@@ -1069,6 +1079,7 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghost
 
   // Phase C: accelerating drop to the resting row.
   const fallFrom = dist > 0 ? startRow + 0.8 : startRow;
+  pressFx("t-drop");
   const dropMs = Math.max(140, budgetMs * 0.5);
   await new Promise((resolve) => {
     const t0 = performance.now();
@@ -1391,7 +1402,9 @@ function setTetrisMode(mode) {
   state.tetrisMode = mode;
   $("t-mode-auto").classList.toggle("active", mode === "auto");
   $("t-mode-manual").classList.toggle("active", mode === "manual");
-  $("t-dpad").hidden = mode !== "manual";
+  for (const id of ["t-left", "t-right", "t-rotate", "t-drop"]) {
+    $(id).disabled = mode !== "manual";
+  }
   $("t-cands-label").textContent = mode === "manual" ? "你的落点 vs 模型的候选（★ 为模型首选）" : "候选落点与模型评分 P(好落点)";
   $("t-s-int-label").textContent = mode === "manual" ? "与模型一致" : "护栏干预";
   $("t-s-int").textContent = "0";
