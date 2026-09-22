@@ -85,6 +85,10 @@ nav button {
 }
 nav button.active { background: var(--blue-soft); color: var(--ink); font-weight: 600; }
 #engine { margin-left: auto; color: var(--ink-3); font-size: 13px; }
+.theme-btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
+  border-radius: 6px; padding: 2px 10px; font: inherit; font-size: 14px; cursor: pointer;
+}
 #engine b { color: var(--ink-2); font-weight: 600; }
 
 main { max-width: 1180px; margin: 0 auto; padding: 20px 24px 60px; }
@@ -210,6 +214,7 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
     <button id="nav-flappy">Flappy Bird</button>
   </nav>
   <div id="engine">连接中…</div>
+  <button id="theme-toggle" class="theme-btn" aria-label="切换深浅色主题" title="切换深浅色主题">☾</button>
 </header>
 
 <main>
@@ -513,6 +518,7 @@ function updateDirRows(decision) {
 }
 
 function drawBoard(snap) {
+  state._snakeSnap = snap;
   const canvas = $("board");
   const ctx = canvas.getContext("2d");
   const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
@@ -678,6 +684,7 @@ function updateFlappyPanel(decision) {
 }
 
 function drawFlappy(snap) {
+  state._flappySnap = snap;
   const canvas = $("fboard");
   const ctx = canvas.getContext("2d");
   const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
@@ -792,6 +799,28 @@ function switchView(name) {
     $("nav-" + v).classList.toggle("active", name === v);
   }
 }
+
+function effectiveTheme() {
+  const t = document.documentElement.dataset.theme;
+  if (t === "dark" || t === "light") return t;
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function applyTheme(t) {
+  if (t) document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  $("theme-toggle").textContent = effectiveTheme() === "dark" ? "☀" : "☾";
+  if (state._snakeSnap) drawBoard(state._snakeSnap);
+  if (state._flappySnap) drawFlappy(state._flappySnap);
+}
+$("theme-toggle").onclick = () => {
+  const next = effectiveTheme() === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem("laya-theme", next); } catch {}
+};
+try {
+  const saved = localStorage.getItem("laya-theme");
+  applyTheme(saved === "dark" || saved === "light" ? saved : null);
+} catch { applyTheme(null); }
 
 $("nav-decide").onclick = () => switchView("decide");
 $("nav-snake").onclick = () => switchView("snake");
