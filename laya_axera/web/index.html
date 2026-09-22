@@ -158,6 +158,18 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
   font-size: 13.5px; font-variant-numeric: tabular-nums;
 }
 
+/* ---- tetris view ---- */
+#tboard { width: 310px; max-width: 100%; margin: 0 auto; display: block; background: var(--board); border: 1px solid var(--border); border-radius: 6px; }
+.t-cand { display: grid; grid-template-columns: 162px 1fr 52px; gap: 10px; align-items: center; padding: 4px 0; }
+.t-cand .opt { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-cand.chosen .opt { color: var(--ink); font-weight: 650; }
+.t-cand .track { display: block; height: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.t-cand .fill { display: block; height: 100%; width: 0; background: var(--blue); border-radius: 3px; transition: width 0.3s ease; }
+.t-cand:not(.chosen) .fill { opacity: 0.45; }
+.t-cand .val { font-size: 12.5px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.t-cand.chosen .val { color: var(--ink); font-weight: 650; }
+.t-cands-label { font-size: 12.5px; color: var(--ink-3); margin-bottom: 4px; }
+
 /* ---- snake view ---- */
 .snake-grid { display: grid; grid-template-columns: minmax(300px, 1fr) 340px; gap: 32px; align-items: start; }
 .board-wrap { position: relative; }
@@ -212,6 +224,7 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
     <button id="nav-decide" class="active">决策台</button>
     <button id="nav-snake">贪吃蛇</button>
     <button id="nav-flappy">Flappy Bird</button>
+    <button id="nav-tetris">俄罗斯方块</button>
   </nav>
   <div id="engine">连接中…</div>
   <button id="theme-toggle" class="theme-btn" aria-label="切换深浅色主题" title="切换深浅色主题">☾</button>
@@ -315,6 +328,40 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <div class="stat"><div class="slabel">拍翅比例</div><div class="sval" id="f-s-flap">–</div></div>
         </div>
         <div class="error" id="flappy-error" hidden></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="view-tetris" hidden>
+    <div class="snake-grid">
+      <div class="board-wrap">
+        <canvas id="tboard" width="310" height="620" aria-label="俄罗斯方块棋盘，每一块的落点由 Laya 在 NPU 上逐个评分决定"></canvas>
+        <div class="overlay" id="t-overlay">
+          <div id="t-overlay-title">四个候选落点，模型逐个打分</div>
+          <small id="t-overlay-sub">规则引擎筛出候选，Laya 用 noul 判断「这是好落点吗」，取概率最高者。</small>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="controls">
+          <button class="btn primary" id="tetris-new">新开一局</button>
+          <button class="btn" id="tetris-toggle" disabled>暂停</button>
+          <label>速度
+            <input type="range" id="t-speed" min="1" max="11" value="4" aria-label="每秒方块数，最右为不限速">
+          </label>
+          <label><input type="checkbox" id="t-guarded" checked> 安全护栏</label>
+        </div>
+        <div class="t-cands-label">候选落点与模型评分 P(好落点)</div>
+        <div id="t-cands"></div>
+        <div class="decision-note" id="t-note">每块方块：启发式筛 4 个候选，模型逐个 noul 评分，选概率最高的。</div>
+        <div class="stats">
+          <div class="stat"><div class="slabel">得分</div><div class="sval" id="t-s-score">0</div></div>
+          <div class="stat"><div class="slabel">消行</div><div class="sval" id="t-s-lines">0</div></div>
+          <div class="stat"><div class="slabel">方块数</div><div class="sval" id="t-s-pieces">0</div></div>
+          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="t-s-int">0</div></div>
+          <div class="stat"><div class="slabel">单块推理</div><div class="sval" id="t-s-inf">–<small> ms</small></div></div>
+          <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="t-s-mps">–<small> 块/s</small></div></div>
+        </div>
+        <div class="error" id="tetris-error" hidden></div>
       </aside>
     </div>
   </section>
@@ -788,13 +835,171 @@ function flappyToggle() {
   if (f.playing) flappyLoop(f.gen);
 }
 
+/* ---------- tetris view ---------- */
+
+const T_MARKS = ["\u2460", "\u2461", "\u2462", "\u2463"];
+const T_COLORS = {
+  light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#4a3aa7", "#e34948"],
+  dark: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9", "#e66767"],
+};
+
+function candText(c) {
+  const lines = c.lines ? `消${c.lines}行` : "不消行";
+  const holes = c.holes ? `埋${c.holes}洞` : "无洞";
+  const height = c.height > 15 ? "近顶" : c.height > 10 ? "变高" : "低位";
+  return `${lines}·${holes}·${height}`;
+}
+
+function updateTetrisPanel(decision) {
+  const box = $("t-cands");
+  box.innerHTML = "";
+  if (!decision) return;
+  decision.candidates.forEach((c, i) => {
+    const row = document.createElement("div");
+    row.className = "t-cand" + (i === decision.executed ? " chosen" : "");
+    row.innerHTML = `<span class="opt" title="${esc(c.statement)}">${i === decision.executed ? "✓ " : ""}${T_MARKS[i]} ${candText(c)}</span>
+      <span class="track"><span class="fill"></span></span>
+      <span class="val">${pct(c.p_good)}</span>`;
+    requestAnimationFrame(() => { row.querySelector(".fill").style.width = (c.p_good * 100).toFixed(1) + "%"; });
+    box.appendChild(row);
+  });
+  const note = $("t-note");
+  if (decision.intervened) {
+    note.innerHTML = `<span class="flag">护栏干预</span>：模型首选 ${T_MARKS[decision.proposed]}（堆叠过高），改用 ${T_MARKS[decision.executed]}`;
+  } else if (decision.executed === decision.heuristic_best) {
+    note.textContent = `模型选择 ${T_MARKS[decision.executed]}，与启发式首选一致。`;
+  } else {
+    note.textContent = `模型选择 ${T_MARKS[decision.executed]}，与启发式首选不同——判断权在模型。`;
+  }
+}
+
+function drawTetris(snap, placedCells) {
+  state._tetrisSnap = snap;
+  state._tetrisPlaced = placedCells;
+  const canvas = $("tboard");
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
+  const css = getComputedStyle(document.documentElement);
+  const colors = T_COLORS[effectiveTheme()];
+  ctx.fillStyle = css.getPropertyValue("--board").trim();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = css.getPropertyValue("--grid").trim();
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 1; x < snap.width; x++) { ctx.moveTo(x * cw, 0); ctx.lineTo(x * cw, canvas.height); }
+  for (let y = 1; y < snap.height; y++) { ctx.moveTo(0, y * ch); ctx.lineTo(canvas.width, y * ch); }
+  ctx.stroke();
+  for (let y = 0; y < snap.height; y++) {
+    for (let x = 0; x < snap.width; x++) {
+      const v = snap.board[y][x];
+      if (!v) continue;
+      ctx.fillStyle = colors[(v - 1) % colors.length];
+      ctx.beginPath();
+      ctx.roundRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2, 3);
+      ctx.fill();
+    }
+  }
+  if (placedCells) {
+    ctx.strokeStyle = css.getPropertyValue("--ink").trim();
+    ctx.lineWidth = 2;
+    for (const [x, y] of placedCells) {
+      ctx.beginPath();
+      ctx.roundRect(x * cw + 1.5, y * ch + 1.5, cw - 3, ch - 3, 3);
+      ctx.stroke();
+    }
+  }
+}
+
+function updateTetrisStats(snap, stats, decision) {
+  $("t-s-score").textContent = snap.score;
+  $("t-s-lines").textContent = snap.lines;
+  $("t-s-pieces").textContent = snap.pieces;
+  $("t-s-int").textContent = stats ? stats.interventions : 0;
+  if (decision) $("t-s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
+  const t = state.tetris;
+  if (t && t.lastTick) {
+    const dt = (performance.now() - t.lastTick) / 1000;
+    if (dt > 0) $("t-s-mps").innerHTML = (1 / dt).toFixed(1) + "<small> 块/s</small>";
+  }
+}
+
+async function tetrisNew() {
+  hide("tetris-error");
+  $("tetris-new").disabled = true;
+  $("tetris-new").textContent = "加载中…";
+  try {
+    const data = await api("/api/tetris/new", {
+      model: state.current,
+      guarded: $("t-guarded").checked,
+    });
+    state.tetris = { session: data.session, playing: true, gen: (state.tetris ? state.tetris.gen : 0) + 1, lastTick: 0 };
+    $("t-overlay").hidden = true;
+    $("tetris-toggle").disabled = false;
+    $("tetris-toggle").textContent = "暂停";
+    updateTetrisPanel(null);
+    drawTetris(data.state, null);
+    updateTetrisStats(data.state, null, null);
+    refreshInfo(true);
+    tetrisLoop(state.tetris.gen);
+  } catch (err) {
+    showError("tetris-error", err.message);
+  } finally {
+    $("tetris-new").disabled = false;
+    $("tetris-new").textContent = "新开一局";
+  }
+}
+
+async function tetrisLoop(gen) {
+  const t = state.tetris;
+  if (!t || t.gen !== gen || !t.playing) return;
+  const speed = Number($("t-speed").value);
+  const target = speed >= 11 ? 0 : 1000 / speed;
+  const t0 = performance.now();
+  let data;
+  try {
+    data = await api("/api/tetris/step", { session: t.session });
+  } catch (err) {
+    showError("tetris-error", err.message);
+    t.playing = false;
+    $("tetris-toggle").disabled = true;
+    return;
+  }
+  if (!state.tetris || state.tetris.gen !== gen) return;
+  if (data.decision) {
+    updateTetrisPanel(data.decision);
+    drawTetris(data.state, data.decision.candidates[data.decision.executed].cells);
+  } else {
+    drawTetris(data.state, null);
+  }
+  updateTetrisStats(data.state, data.stats, data.decision);
+  t.lastTick = t0;
+  if (data.done) {
+    t.playing = false;
+    $("tetris-toggle").disabled = true;
+    $("t-overlay-title").textContent = "本局结束：堆到顶了";
+    $("t-overlay-sub").textContent = `得分 ${data.state.score}，消 ${data.state.lines} 行，共 ${data.state.pieces} 块。`;
+    $("t-overlay").hidden = false;
+    return;
+  }
+  const elapsed = performance.now() - t0;
+  setTimeout(() => tetrisLoop(gen), Math.max(0, target - elapsed));
+}
+
+function tetrisToggle() {
+  const t = state.tetris;
+  if (!t) return;
+  t.playing = !t.playing;
+  $("tetris-toggle").textContent = t.playing ? "暂停" : "继续";
+  if (t.playing) tetrisLoop(t.gen);
+}
+
 /* ---------- shell ---------- */
 
 function showError(id, msg) { const el = $(id); el.textContent = msg; el.hidden = false; }
 function hide(id) { $(id).hidden = true; }
 
 function switchView(name) {
-  for (const v of ["decide", "snake", "flappy"]) {
+  for (const v of ["decide", "snake", "flappy", "tetris"]) {
     $("view-" + v).hidden = name !== v;
     $("nav-" + v).classList.toggle("active", name === v);
   }
@@ -811,6 +1016,7 @@ function applyTheme(t) {
   $("theme-toggle").textContent = effectiveTheme() === "dark" ? "☀" : "☾";
   if (state._snakeSnap) drawBoard(state._snakeSnap);
   if (state._flappySnap) drawFlappy(state._flappySnap);
+  if (state._tetrisSnap) drawTetris(state._tetrisSnap, state._tetrisPlaced);
 }
 $("theme-toggle").onclick = () => {
   const next = effectiveTheme() === "dark" ? "light" : "dark";
@@ -825,12 +1031,15 @@ try {
 $("nav-decide").onclick = () => switchView("decide");
 $("nav-snake").onclick = () => switchView("snake");
 $("nav-flappy").onclick = () => switchView("flappy");
+$("nav-tetris").onclick = () => switchView("tetris");
 $("run").onclick = runPredict;
 $("load-sample").onclick = loadSample;
 $("snake-new").onclick = snakeNew;
 $("snake-toggle").onclick = snakeToggle;
 $("flappy-new").onclick = flappyNew;
 $("flappy-toggle").onclick = flappyToggle;
+$("tetris-new").onclick = tetrisNew;
+$("tetris-toggle").onclick = tetrisToggle;
 
 initDirRows();
 initFlappyRows();

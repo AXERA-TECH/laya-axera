@@ -18,6 +18,8 @@ from .flappy.game import FlappyGame
 from .flappy.policy import LayaFlappyPolicy
 from .snake.game import SnakeGame
 from .snake.policy import LayaPolicy
+from .tetris.game import TetrisGame
+from .tetris.policy import LayaTetrisPolicy
 
 WEB_DIR = Path(__file__).parent / "web"
 MAX_SNAKE_SESSIONS = 16
@@ -240,6 +242,51 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
         game.step(decision.executed == "up")
         stats["steps"] += 1
         stats["flaps"] += int(decision.executed == "up")
+        stats["interventions"] += int(decision.intervened)
+        stats["inference_ms_total"] += decision.inference_ms
+        return {
+            "decision": decision.to_dict(),
+            "state": game.snapshot(),
+            "stats": stats,
+            "done": not game.alive,
+        }
+
+    tetris_sessions: Dict[str, Dict[str, Any]] = {}
+
+    @app.post("/api/tetris/new")
+    def tetris_new(body: FlappyNewBody):
+        agent = registry.get(body.model)
+        seed = body.seed if body.seed is not None else int(time.time() * 1000) % 100000
+        game = TetrisGame(seed=seed)
+        policy = LayaTetrisPolicy(agent, guarded=body.guarded)
+        sid = uuid.uuid4().hex[:12]
+        with sessions_lock:
+            while len(tetris_sessions) >= MAX_SNAKE_SESSIONS:
+                oldest = min(tetris_sessions, key=lambda s: tetris_sessions[s]["created"])
+                del tetris_sessions[oldest]
+            tetris_sessions[sid] = {
+                "game": game,
+                "policy": policy,
+                "created": time.time(),
+                "stats": {"pieces": 0, "interventions": 0, "inference_ms_total": 0.0},
+            }
+        return {"session": sid, "seed": seed, "state": game.snapshot()}
+
+    @app.post("/api/tetris/step")
+    def tetris_step(body: SnakeStepBody):
+        with sessions_lock:
+            entry = tetris_sessions.get(body.session)
+        if entry is None:
+            raise HTTPException(404, "Unknown or expired tetris session")
+        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+        if not game.alive:
+            return {"state": game.snapshot(), "stats": stats, "done": True}
+        try:
+            decision = policy.decide(game)
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(500, str(exc))
+        game.apply(decision.candidates[decision.executed])
+        stats["pieces"] += 1
         stats["interventions"] += int(decision.intervened)
         stats["inference_ms_total"] += decision.inference_ms
         return {

@@ -120,6 +120,10 @@ laya-axera serve --root models/Laya --port 8010
 - **Flappy Bird** — one binary decision per step (flap or glide), one NPU question at
   ~30 ms: the planner describes each action's consequence, the model picks, and the
   optional shield corrects only fatal proposals.
+- **俄罗斯方块 / Tetris** — the planner shortlists four placements; the model rates each
+  one independently with a noul question over a uniform Chinese statement (probe-selected:
+  choice-style ranking suffers heavy label bias in this domain) and the highest P(good)
+  placement is played. ~126 ms per piece, four NPU questions.
 - **贪吃蛇 / Snake** — the laya-mlx Snake demo, served to the browser. Every move asks the
   resident checkpoint three questions (move / risk / food) on the NPU; a deterministic cycle
   safety shield can correct unsafe proposals, and every intervention is counted and shown.
