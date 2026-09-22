@@ -933,18 +933,66 @@ function drawTetris(snap, placedCells) {
   renderTetrisFrame(snap, { outlineCells: placedCells });
 }
 
-function animateDrop(prevSnap, cells, pieceLetter, durationMs) {
-  return new Promise((resolve) => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches || durationMs <= 0) return resolve();
-    const canvas = $("tboard");
-    const ch = canvas.height / prevSnap.height;
-    const colorIdx = T_SHAPE_IDX[pieceLetter] ?? 0;
-    const bottom = Math.max(...cells.map((c) => c[1]));
-    const startDy = -(bottom + 1) * ch;
+// Rotation tables mirroring laya_axera/tetris/game.py exactly (indices must match).
+const T_SHAPES = {
+  I: [[[0,0],[1,0],[2,0],[3,0]], [[0,0],[0,1],[0,2],[0,3]]],
+  O: [[[0,0],[1,0],[0,1],[1,1]]],
+  T: [[[0,0],[1,0],[2,0],[1,1]], [[1,0],[0,1],[1,1],[1,2]], [[1,0],[0,1],[1,1],[2,1]], [[0,0],[0,1],[1,1],[0,2]]],
+  S: [[[1,0],[2,0],[0,1],[1,1]], [[0,0],[0,1],[1,1],[1,2]]],
+  Z: [[[0,0],[1,0],[1,1],[2,1]], [[1,0],[0,1],[1,1],[0,2]]],
+  J: [[[0,0],[0,1],[1,1],[2,1]], [[0,0],[1,0],[0,1],[0,2]], [[0,0],[1,0],[2,0],[2,1]], [[1,0],[1,1],[0,2],[1,2]]],
+  L: [[[2,0],[0,1],[1,1],[2,1]], [[0,0],[0,1],[0,2],[1,2]], [[0,0],[1,0],[2,0],[0,1]], [[0,0],[1,0],[1,1],[1,2]]],
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function pieceFrame(prevSnap, letter, rot, col, rowFloat) {
+  const ch = $("tboard").height / prevSnap.height;
+  const cells = T_SHAPES[letter][rot].map(([x, y]) => [col + x, y]);
+  renderTetrisFrame(prevSnap, {
+    piece: { cells, colorIdx: T_SHAPE_IDX[letter] ?? 0, dyPx: rowFloat * ch },
+  });
+}
+
+async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const rots = T_SHAPES[letter];
+  const W = prevSnap.width;
+  const width = (r) => Math.max(...rots[r].map((c) => c[0])) + 1;
+  const clampCol = (c, r) => Math.max(0, Math.min(c, W - width(r)));
+  const spawnCol = clampCol(Math.floor((W - width(0)) / 2), 0);
+
+  // Phase A: spawn at top center, step through rotations in place.
+  const rotFrames = cand.rotation + 1;
+  const rotMs = Math.max(60, (budgetMs * 0.22) / rotFrames);
+  for (let r = 0; r <= cand.rotation; r++) {
+    if (isStale()) return;
+    pieceFrame(prevSnap, letter, r, clampCol(spawnCol, r), 0);
+    await sleep(rotMs);
+  }
+
+  // Phase B: slide cell by cell toward the target column, drifting down a little.
+  const fromCol = clampCol(spawnCol, cand.rotation);
+  const dist = Math.abs(cand.col - fromCol);
+  if (dist > 0) {
+    const stepMs = Math.max(24, (budgetMs * 0.28) / dist);
+    const dir = cand.col > fromCol ? 1 : -1;
+    for (let i = 1; i <= dist; i++) {
+      if (isStale()) return;
+      pieceFrame(prevSnap, letter, cand.rotation, fromCol + dir * i, (2.5 * i) / dist);
+      await sleep(stepMs);
+    }
+  }
+
+  // Phase C: accelerating drop to the resting row.
+  const startRow = dist > 0 ? 2.5 : 0;
+  const dropMs = Math.max(140, budgetMs * 0.5);
+  await new Promise((resolve) => {
     const t0 = performance.now();
     const frame = (now) => {
-      const p = Math.min(1, (now - t0) / durationMs);
-      renderTetrisFrame(prevSnap, { piece: { cells, colorIdx, dyPx: startDy * (1 - p * p) } });
+      if (isStale()) return resolve();
+      const p = Math.min(1, (now - t0) / dropMs);
+      pieceFrame(prevSnap, letter, cand.rotation, cand.col, startRow + (cand.row - startRow) * p * p);
       if (p < 1) requestAnimationFrame(frame);
       else resolve();
     };
@@ -1017,17 +1065,19 @@ async function tetrisLoop(gen) {
   if (!state.tetris || state.tetris.gen !== gen) return;
   if (data.decision) {
     updateTetrisPanel(data.decision);
-    const cells = data.decision.candidates[data.decision.executed].cells;
+    const cand = data.decision.candidates[data.decision.executed];
+    const cells = cand.cells;
     const prev = state._tetrisSnap;
     if (prev && prev.board) {
-      const animMs = target > 0 ? Math.min(340, target * 0.75) : 110;
-      await animateDrop(prev, cells, prev.current, animMs);
-      if (!state.tetris || state.tetris.gen !== gen) return;
+      const budget = target > 0 ? Math.max(320, Math.min(1100, target * 0.8)) : 320;
+      const isStale = () => !state.tetris || state.tetris.gen !== gen;
+      await animatePlacement(prev, cand, prev.current, budget, isStale);
+      if (isStale()) return;
       const rows = fullRowsAfter(prev, cells);
       if (rows.length) {
         renderTetrisFrame(prev, { piece: { cells, colorIdx: T_SHAPE_IDX[prev.current] ?? 0, dyPx: 0 }, flashRows: rows });
-        await new Promise((r) => setTimeout(r, 130));
-        if (!state.tetris || state.tetris.gen !== gen) return;
+        await sleep(130);
+        if (isStale()) return;
       }
     }
     drawTetris(data.state, cells);
