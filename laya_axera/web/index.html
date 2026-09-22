@@ -346,7 +346,7 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <button class="btn primary" id="tetris-new">新开一局</button>
           <button class="btn" id="tetris-toggle" disabled>暂停</button>
           <label>速度
-            <input type="range" id="t-speed" min="1" max="11" value="4" aria-label="每秒方块数，最右为不限速">
+            <input type="range" id="t-speed" min="1" max="11" value="2" aria-label="每秒方块数，最右为不限速">
           </label>
           <label><input type="checkbox" id="t-guarded" checked> 安全护栏</label>
         </div>
@@ -850,19 +850,33 @@ function candText(c) {
   return `${lines}·${holes}·${height}`;
 }
 
-function updateTetrisPanel(decision) {
+function buildTetrisPanel(cands) {
   const box = $("t-cands");
   box.innerHTML = "";
-  if (!decision) return;
-  decision.candidates.forEach((c, i) => {
+  cands.forEach((c, i) => {
     const row = document.createElement("div");
-    row.className = "t-cand" + (i === decision.executed ? " chosen" : "");
-    row.innerHTML = `<span class="opt" title="${esc(c.statement)}">${i === decision.executed ? "✓ " : ""}${T_MARKS[i]} ${candText(c)}</span>
+    row.className = "t-cand";
+    row.innerHTML = `<span class="opt" title="${esc(c.statement)}">${T_MARKS[i]} ${candText(c)}</span>
       <span class="track"><span class="fill"></span></span>
-      <span class="val">${pct(c.p_good)}</span>`;
-    requestAnimationFrame(() => { row.querySelector(".fill").style.width = (c.p_good * 100).toFixed(1) + "%"; });
+      <span class="val">…</span>`;
     box.appendChild(row);
   });
+}
+
+function revealTetrisCand(i, c) {
+  const row = $("t-cands").children[i];
+  if (!row) return;
+  row.querySelector(".fill").style.width = (c.p_good * 100).toFixed(1) + "%";
+  row.querySelector(".val").textContent = pct(c.p_good);
+}
+
+function finalizeTetrisPanel(decision) {
+  const row = $("t-cands").children[decision.executed];
+  if (row) {
+    row.classList.add("chosen");
+    const opt = row.querySelector(".opt");
+    opt.textContent = "✓ " + opt.textContent;
+  }
   const note = $("t-note");
   if (decision.intervened) {
     note.innerHTML = `<span class="flag">护栏干预</span>：模型首选 ${T_MARKS[decision.proposed]}（堆叠过高），改用 ${T_MARKS[decision.executed]}`;
@@ -871,6 +885,13 @@ function updateTetrisPanel(decision) {
   } else {
     note.textContent = `模型选择 ${T_MARKS[decision.executed]}，与启发式首选不同——判断权在模型。`;
   }
+}
+
+function updateTetrisPanel(decision) {
+  if (!decision) { $("t-cands").innerHTML = ""; return; }
+  buildTetrisPanel(decision.candidates);
+  decision.candidates.forEach((c, i) => revealTetrisCand(i, c));
+  finalizeTetrisPanel(decision);
 }
 
 const T_SHAPE_IDX = { I: 0, O: 1, T: 2, S: 3, Z: 4, J: 5, L: 6 };
@@ -899,6 +920,35 @@ function renderTetrisFrame(snap, opts) {
       ctx.roundRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2, 3);
       ctx.fill();
     }
+  }
+  if (opts && opts.ghosts) {
+    ctx.save();
+    ctx.font = "600 13px system-ui, sans-serif";
+    for (const g of opts.ghosts) {
+      ctx.setLineDash(g.chosen ? [] : [5, 4]);
+      ctx.lineWidth = g.chosen ? 2.5 : 1.5;
+      const ink = css.getPropertyValue("--ink").trim();
+      const blue = css.getPropertyValue("--blue").trim();
+      ctx.strokeStyle = g.chosen ? blue : ink;
+      ctx.globalAlpha = g.revealed ? 0.95 : 0.35;
+      if (g.chosen) {
+        ctx.fillStyle = blue;
+        ctx.globalAlpha = 0.25;
+        for (const [x, y] of g.cells) ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
+        ctx.globalAlpha = 0.95;
+      }
+      for (const [x, y] of g.cells) {
+        ctx.beginPath();
+        ctx.roundRect(x * cw + 1.5, y * ch + 1.5, cw - 3, ch - 3, 3);
+        ctx.stroke();
+      }
+      const tx = Math.min(...g.cells.map((c) => c[0]));
+      const ty = Math.min(...g.cells.filter((c) => c[0] === tx).map((c) => c[1]));
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = g.chosen ? blue : ink;
+      ctx.fillText(g.mark, tx * cw + 4, ty * ch + 16);
+    }
+    ctx.restore();
   }
   if (opts && opts.piece) {
     ctx.fillStyle = colors[opts.piece.colorIdx % colors.length];
@@ -946,15 +996,16 @@ const T_SHAPES = {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function pieceFrame(prevSnap, letter, rot, col, rowFloat) {
+function pieceFrame(prevSnap, letter, rot, col, rowFloat, ghosts) {
   const ch = $("tboard").height / prevSnap.height;
   const cells = T_SHAPES[letter][rot].map(([x, y]) => [col + x, y]);
   renderTetrisFrame(prevSnap, {
     piece: { cells, colorIdx: T_SHAPE_IDX[letter] ?? 0, dyPx: rowFloat * ch },
+    ghosts,
   });
 }
 
-async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale) {
+async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghosts) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const rots = T_SHAPES[letter];
   const W = prevSnap.width;
@@ -967,7 +1018,7 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale) {
   const rotMs = Math.max(60, (budgetMs * 0.22) / rotFrames);
   for (let r = 0; r <= cand.rotation; r++) {
     if (isStale()) return;
-    pieceFrame(prevSnap, letter, r, clampCol(spawnCol, r), 0);
+    pieceFrame(prevSnap, letter, r, clampCol(spawnCol, r), 0, ghosts);
     await sleep(rotMs);
   }
 
@@ -979,7 +1030,7 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale) {
     const dir = cand.col > fromCol ? 1 : -1;
     for (let i = 1; i <= dist; i++) {
       if (isStale()) return;
-      pieceFrame(prevSnap, letter, cand.rotation, fromCol + dir * i, (2.5 * i) / dist);
+      pieceFrame(prevSnap, letter, cand.rotation, fromCol + dir * i, (2.5 * i) / dist, ghosts);
       await sleep(stepMs);
     }
   }
@@ -992,7 +1043,7 @@ async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale) {
     const frame = (now) => {
       if (isStale()) return resolve();
       const p = Math.min(1, (now - t0) / dropMs);
-      pieceFrame(prevSnap, letter, cand.rotation, cand.col, startRow + (cand.row - startRow) * p * p);
+      pieceFrame(prevSnap, letter, cand.rotation, cand.col, startRow + (cand.row - startRow) * p * p, ghosts);
       if (p < 1) requestAnimationFrame(frame);
       else resolve();
     };
@@ -1064,14 +1115,43 @@ async function tetrisLoop(gen) {
   }
   if (!state.tetris || state.tetris.gen !== gen) return;
   if (data.decision) {
-    updateTetrisPanel(data.decision);
-    const cand = data.decision.candidates[data.decision.executed];
+    const dec = data.decision;
+    const cand = dec.candidates[dec.executed];
     const cells = cand.cells;
     const prev = state._tetrisSnap;
     if (prev && prev.board) {
-      const budget = target > 0 ? Math.max(320, Math.min(1100, target * 0.8)) : 320;
       const isStale = () => !state.tetris || state.tetris.gen !== gen;
-      await animatePlacement(prev, cand, prev.current, budget, isStale);
+      const budget = target > 0 ? Math.max(900, Math.min(2400, target)) : 650;
+      const ghosts = dec.candidates.map((c, i) => ({
+        cells: c.cells, mark: T_MARKS[i], revealed: false, chosen: false,
+      }));
+      const spawnGhostFrame = () => pieceFrame(
+        prev, prev.current, 0,
+        Math.max(0, Math.floor((prev.width - (Math.max(...T_SHAPES[prev.current][0].map(c => c[0])) + 1)) / 2)),
+        0, ghosts);
+      // 1) new piece appears, candidates outlined but unscored
+      buildTetrisPanel(dec.candidates);
+      $("t-note").textContent = "模型正在逐个评估候选落点…";
+      spawnGhostFrame();
+      await sleep(budget * 0.12);
+      if (isStale()) return;
+      // 2) reveal each rating in turn, board ghost lighting up with its bar
+      for (let i = 0; i < dec.candidates.length; i++) {
+        ghosts[i].revealed = true;
+        revealTetrisCand(i, dec.candidates[i]);
+        spawnGhostFrame();
+        await sleep((budget * 0.36) / dec.candidates.length);
+        if (isStale()) return;
+      }
+      // 3) winner highlighted
+      ghosts[dec.executed].chosen = true;
+      finalizeTetrisPanel(dec);
+      spawnGhostFrame();
+      await sleep(budget * 0.1);
+      if (isStale()) return;
+      // 4) rotate, slide, drop into the winning ghost
+      await animatePlacement(prev, cand, prev.current, budget * 0.42, isStale,
+        [ghosts[dec.executed]]);
       if (isStale()) return;
       const rows = fullRowsAfter(prev, cells);
       if (rows.length) {
@@ -1079,6 +1159,8 @@ async function tetrisLoop(gen) {
         await sleep(130);
         if (isStale()) return;
       }
+    } else {
+      updateTetrisPanel(dec);
     }
     drawTetris(data.state, cells);
   } else {
