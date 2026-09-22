@@ -145,7 +145,7 @@ def main():
         "```",
         "",
         "```bash",
-        "uv sync --extra dev --extra reference --extra benchmark",
+        "uv sync --extra dev --extra reference --extra benchmark --extra demo",
         "source .venv/bin/activate",
         "gh repo clone NandhaKishorM/laya .upstream",
         f"git -C .upstream checkout {env['upstream_revision']}",

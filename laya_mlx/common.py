@@ -117,3 +117,22 @@ def confidence_from_probs(p: np.ndarray, k: int) -> float:
 def temp_bucket(qtype: int, k: int) -> str:
     size = "2" if k <= 2 else "3-5" if k <= 5 else "6-10" if k <= 10 else "11+"
     return "%s:%s" % (QTYPE_NAMES[int(qtype)], size)
+
+
+# A fitted temperature below 1 sharpens the logits instead of softening them. The shipped
+# `choice:11+` bucket is 0.1006, which multiplies them ~10x: a 0.24 top probability is published
+# as 0.99, so a caller gating on confidence is told a coin flip is a certainty. No honest
+# calibration needs to sharpen this hard, so refuse to apply one that does.
+TEMP_MIN = 0.5
+TEMP_MAX = 5.0
+
+
+def clamp_temperature(t, lo: float = TEMP_MIN, hi: float = TEMP_MAX) -> float:
+    """A usable temperature: `t` confined to [lo, hi], falling back to 1.0 if it is not a number."""
+    try:
+        t = float(t)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(t):
+        return 1.0
+    return min(hi, max(lo, t))

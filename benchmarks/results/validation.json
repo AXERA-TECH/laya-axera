@@ -1,5 +1,5 @@
 {
-  "assembled_at": "2026-09-19T14:09:49.949500+00:00",
+  "created_at": "2026-09-22T05:07:41.058866+00:00",
   "environment": {
     "cpu": "Apple M3 Max",
     "unified_memory_bytes": 137438953472,
@@ -15,80 +15,15 @@
       "tokenizers": "0.23.2",
       "huggingface-hub": "1.32.0"
     },
-    "source_sha256": "c899baab22684859a60d7fd843cb852572234d0014eaf76c619c99880090eb61",
-    "upstream_revision": "6a5819129eb220570792e417e49723d697efd76f"
+    "source_sha256": "5869de4c868364755b0d4ea6d1a29c925b308204c80cf756ee56b8ce2368ccfe",
+    "upstream_revision": "573e5b62696ba441230cd6be71d593331b5d23af"
   },
-  "component_runs": [
-    {
-      "file": "validation-laya.json",
-      "created_at": "2026-09-19T13:48:44.759104+00:00",
-      "environment": {
-        "machine": "arm64",
-        "os": "macOS-27.2-arm64-64bit",
-        "python": "3.12.13",
-        "packages": {
-          "mlx": "0.32.2",
-          "mlx-metal": "0.32.2",
-          "numpy": "2.5.3",
-          "torch": "2.14.0",
-          "transformers": "5.17.0",
-          "tokenizers": "0.23.2",
-          "huggingface-hub": "1.32.0"
-        },
-        "source_sha256": "747e615ce375d9c7be7f4c5bf65433328a1bdfcd76fe2710214c10c72ad4488e",
-        "upstream_revision": "6a5819129eb220570792e417e49723d697efd76f"
-      }
-    },
-    {
-      "file": "validation-multilingual.json",
-      "created_at": "2026-09-19T13:51:42.708244+00:00",
-      "environment": {
-        "cpu": "Apple M3 Max",
-        "unified_memory_bytes": 137438953472,
-        "machine": "arm64",
-        "os": "macOS-27.2-arm64-64bit",
-        "python": "3.12.13",
-        "packages": {
-          "mlx": "0.32.2",
-          "mlx-metal": "0.32.2",
-          "numpy": "2.5.3",
-          "torch": "2.14.0",
-          "transformers": "5.17.0",
-          "tokenizers": "0.23.2",
-          "huggingface-hub": "1.32.0"
-        },
-        "source_sha256": "7ccf4b1edd9003fde38270ae3e96be15b32cf0cf274507f57208edab946dc2e3",
-        "upstream_revision": "6a5819129eb220570792e417e49723d697efd76f"
-      }
-    },
-    {
-      "file": "validation-typed-decisions.json",
-      "created_at": "2026-09-19T14:04:57.141466+00:00",
-      "environment": {
-        "cpu": "Apple M3 Max",
-        "unified_memory_bytes": 137438953472,
-        "machine": "arm64",
-        "os": "macOS-27.2-arm64-64bit",
-        "python": "3.12.13",
-        "packages": {
-          "mlx": "0.32.2",
-          "mlx-metal": "0.32.2",
-          "numpy": "2.5.3",
-          "torch": "2.14.0",
-          "transformers": "5.17.0",
-          "tokenizers": "0.23.2",
-          "huggingface-hub": "1.32.0"
-        },
-        "source_sha256": "c899baab22684859a60d7fd843cb852572234d0014eaf76c619c99880090eb61",
-        "upstream_revision": "6a5819129eb220570792e417e49723d697efd76f"
-      }
-    }
-  ],
   "results": [
     {
       "model": "laya",
       "revision": "c5d78730f3493e4fe16d61507ef4b78eef7318cf",
       "dtype": "float32",
+      "optimized": false,
       "argmax_agreements": 63,
       "questions": 63,
       "probability_max_abs_error": 5.170394474396378e-06,
@@ -297,7 +232,7 @@
           "tokens_equal": true,
           "logits_max_abs_error": 2.0503997802734375e-05,
           "action_logits_max_abs_error": 0.0068359375,
-          "probability_max_abs_error": 6.2494302366671145e-34,
+          "probability_max_abs_error": 1.7676249353115736e-10,
           "action_probability_max_abs_error": 0.0,
           "argmax_agreements": 1,
           "public_result_equal": true
@@ -305,7 +240,7 @@
       ],
       "stability": {
         "calls": 100,
-        "elapsed_seconds": 3.9830371670013847,
+        "elapsed_seconds": 4.508460249999189,
         "finite": true,
         "deterministic": true,
         "active_bytes_before": 1685193880,
@@ -318,6 +253,7 @@
       "model": "laya",
       "revision": "c5d78730f3493e4fe16d61507ef4b78eef7318cf",
       "dtype": "float16",
+      "optimized": false,
       "argmax_agreements": 63,
       "questions": 63,
       "probability_max_abs_error": 0.005444271459395356,
@@ -526,7 +462,7 @@
           "tokens_equal": true,
           "logits_max_abs_error": 0.005983829498291016,
           "action_logits_max_abs_error": 1.384765625,
-          "probability_max_abs_error": 1.541733241969172e-31,
+          "probability_max_abs_error": 3.886170496514296e-08,
           "action_probability_max_abs_error": 0.0,
           "argmax_agreements": 1,
           "public_result_equal": true
@@ -534,7 +470,7 @@
       ],
       "stability": {
         "calls": 100,
-        "elapsed_seconds": 3.521159500000067,
+        "elapsed_seconds": 3.9676401670003543,
         "finite": true,
         "deterministic": true,
         "active_bytes_before": 842602138,
@@ -547,6 +483,7 @@
       "model": "laya-multilingual",
       "revision": "052592a15d198d9ad47da779604259b10b47b7aa",
       "dtype": "float32",
+      "optimized": false,
       "argmax_agreements": 63,
       "questions": 63,
       "probability_max_abs_error": 1.1730551289779179e-06,
@@ -763,19 +700,20 @@
       ],
       "stability": {
         "calls": 100,
-        "elapsed_seconds": 2.050206750000143,
+        "elapsed_seconds": 2.282374541999161,
         "finite": true,
         "deterministic": true,
-        "active_bytes_before": 1287649944,
-        "active_bytes_after": 1287649944,
+        "active_bytes_before": 1287648422,
+        "active_bytes_after": 1287648422,
         "active_growth_bytes": 0,
-        "peak_bytes": 3140499835
+        "peak_bytes": 3140498313
       }
     },
     {
       "model": "laya-multilingual",
       "revision": "052592a15d198d9ad47da779604259b10b47b7aa",
       "dtype": "float16",
+      "optimized": false,
       "argmax_agreements": 63,
       "questions": 63,
       "probability_max_abs_error": 0.0012887104780422431,
@@ -992,7 +930,7 @@
       ],
       "stability": {
         "calls": 100,
-        "elapsed_seconds": 1.7855595410001115,
+        "elapsed_seconds": 2.062824707998516,
         "finite": true,
         "deterministic": true,
         "active_bytes_before": 643832474,
@@ -1005,6 +943,7 @@
       "model": "laya-typed-decisions",
       "revision": "f9ab0b228f0fc0f14d873dbc99038f135c2da1b2",
       "dtype": "float32",
+      "optimized": false,
       "argmax_agreements": 63,
       "questions": 63,
       "probability_max_abs_error": 2.6919645247369672e-06,
@@ -1213,7 +1152,7 @@
           "tokens_equal": true,
           "logits_max_abs_error": 1.0251998901367188e-05,
           "action_logits_max_abs_error": 0.0009765625,
-          "probability_max_abs_error": 5.551115123125783e-15,
+          "probability_max_abs_error": 8.30802299289779e-07,
           "action_probability_max_abs_error": 0.0,
           "argmax_agreements": 1,
           "public_result_equal": true
@@ -1221,19 +1160,20 @@
       ],
       "stability": {
         "calls": 100,
-        "elapsed_seconds": 5.4789109579996875,
+        "elapsed_seconds": 5.453739666998445,
         "finite": true,
         "deterministic": true,
-        "active_bytes_before": 1685193880,
-        "active_bytes_after": 1685193880,
+        "active_bytes_before": 1685193894,
+        "active_bytes_after": 1685193894,
         "active_growth_bytes": 0,
-        "peak_bytes": 3423756077
+        "peak_bytes": 3423756091
       }
     },
     {
       "model": "laya-typed-decisions",
       "revision": "f9ab0b228f0fc0f14d873dbc99038f135c2da1b2",
       "dtype": "float16",
+      "optimized": false,
       "argmax_agreements": 63,
       "questions": 63,
       "probability_max_abs_error": 0.001684852828996053,
@@ -1442,15 +1382,15 @@
           "tokens_equal": true,
           "logits_max_abs_error": 0.006767153739929199,
           "action_logits_max_abs_error": 0.775390625,
-          "probability_max_abs_error": 8.040235144335384e-13,
+          "probability_max_abs_error": 0.00016424481271037905,
           "action_probability_max_abs_error": 0.0,
           "argmax_agreements": 1,
-          "public_result_equal": true
+          "public_result_equal": false
         }
       ],
       "stability": {
         "calls": 100,
-        "elapsed_seconds": 4.304302542001096,
+        "elapsed_seconds": 4.783336374999635,
         "finite": true,
         "deterministic": true,
         "active_bytes_before": 842602138,

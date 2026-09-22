@@ -2,13 +2,23 @@
 
 import json
 import math
+import warnings
 from pathlib import Path, PurePosixPath
 
 import mlx.core as mx
 import numpy as np
 from huggingface_hub import snapshot_download
 
-from .common import QTYPES, build_sequence, confidence_from_probs, render_options, temp_bucket
+from .common import (
+    QTYPES,
+    TEMP_MAX,
+    TEMP_MIN,
+    build_sequence,
+    clamp_temperature,
+    confidence_from_probs,
+    render_options,
+    temp_bucket,
+)
 from .model import DecisionModel, EncoderConfig, sanitize_weights
 from .prepared import PrefixCache
 from .tokenizer import Tokenizer
@@ -121,13 +131,37 @@ class Agent:
         head_max_len = self.cfg.get("head_max_len", 192)
         if not 4 < head_max_len < max_len <= enc_cfg.max_position_embeddings:
             raise ValueError("Expected 4 < head_max_len < max_len <= max_position_embeddings")
-        self.temperature = self.cfg.get("temperature", [1.0, 1.0, 1.0])
-        self.temperature_by_options = self.cfg.get("temperature_by_options", {})
-        if len(self.temperature) != 3 or any(
+        self.temperature_raw = self.cfg.get("temperature", [1.0, 1.0, 1.0])
+        self.temperature_by_options_raw = self.cfg.get("temperature_by_options", {})
+        if len(self.temperature_raw) != 3 or any(
             not math.isfinite(float(t)) or float(t) <= 0
-            for t in [*self.temperature, *self.temperature_by_options.values()]
+            for t in [*self.temperature_raw, *self.temperature_by_options_raw.values()]
         ):
             raise ValueError("Calibration temperatures must be finite and positive")
+        # Keep what the checkpoint shipped for inspection, but only ever apply clamped values:
+        # some buckets are fitted to sharpen rather than soften (see clamp_temperature).
+        self.temperature = [clamp_temperature(t) for t in self.temperature_raw]
+        self.temperature_by_options = {
+            k: clamp_temperature(v) for k, v in self.temperature_by_options_raw.items()
+        }
+        rejected = [
+            "%s=%.4g" % (k, float(v))
+            for k, v in self.temperature_by_options_raw.items()
+            if clamp_temperature(v) != float(v)
+        ]
+        rejected += [
+            "temperature[%d]=%.4g" % (i, float(t))
+            for i, t in enumerate(self.temperature_raw)
+            if clamp_temperature(t) != float(t)
+        ]
+        if rejected:
+            warnings.warn(
+                "laya-mlx: this checkpoint ships temperatures outside [%g, %g] which would "
+                "distort confidence; clamping %s. Treat confidence from the affected buckets "
+                "as uncalibrated." % (TEMP_MIN, TEMP_MAX, ", ".join(rejected)),
+                RuntimeWarning,
+                stacklevel=2,
+            )
         self.tok = Tokenizer(self.model_dir / "tokenizer")
         with mx.stream(self.device):
             self.model = DecisionModel(enc_cfg, self.cfg)
@@ -218,7 +252,7 @@ class Agent:
                 qid, q = question_ids[start + row], internal[start + row]
                 k, qt = len(item["markers"]), item["qtype"]
                 scale = self.temperature_by_options.get(temp_bucket(qt, k), self.temperature[qt])
-                z = logits[row, :k] / max(1e-3, float(scale))
+                z = logits[row, :k] / scale
                 p = np.exp(z - z.max())
                 p /= p.sum()
                 answer = {

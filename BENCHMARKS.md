@@ -24,18 +24,18 @@ All values are milliseconds per request. P95 is shown after `/`.
 
 | Checkpoint | Questions | Tokens / padded length | PyTorch MPS FP32 P50 / P95 | MLX FP32 P50 / P95 | MLX FP16 P50 / P95 | FP16 questions/s |
 |---|---:|---:|---:|---:|---:|---:|
-| laya | 1 | 93 / 93 | 24.92 / 26.65 | 15.95 / 16.50 | 13.42 / 13.92 | 74.0 |
-| laya | 5 | 427 / 93 | 56.41 / 59.05 | 50.49 / 55.38 | 41.80 / 45.33 | 119.0 |
-| laya | 10 | 855 / 93 | 95.26 / 105.79 | 98.82 / 107.28 | 71.07 / 75.30 | 139.1 |
-| laya | 50 | 4237 / 93 | 497.86 / 512.97 | 450.71 / 503.35 | 336.03 / 383.51 | 146.8 |
-| laya-multilingual | 1 | 91 / 91 | 19.35 / 31.36 | 7.99 / 8.35 | 7.39 / 7.79 | 134.5 |
-| laya-multilingual | 5 | 432 / 91 | 29.40 / 34.19 | 19.02 / 20.24 | 16.46 / 16.91 | 304.1 |
-| laya-multilingual | 10 | 862 / 91 | 43.16 / 45.80 | 32.34 / 36.71 | 27.39 / 28.02 | 365.6 |
-| laya-multilingual | 50 | 4287 / 91 | 194.17 / 209.58 | 151.39 / 168.60 | 127.56 / 142.77 | 395.0 |
-| laya-typed-decisions | 1 | 93 / 93 | 24.80 / 30.30 | 15.86 / 16.98 | 13.71 / 16.17 | 70.4 |
-| laya-typed-decisions | 5 | 427 / 93 | 59.88 / 67.51 | 53.33 / 68.34 | 41.90 / 50.23 | 116.5 |
-| laya-typed-decisions | 10 | 855 / 93 | 100.89 / 115.07 | 94.08 / 104.49 | 75.62 / 81.58 | 131.2 |
-| laya-typed-decisions | 50 | 4237 / 93 | 469.72 / 506.29 | 457.34 / 507.93 | 380.56 / 420.40 | 130.5 |
+| laya | 1 | 93 / 93 | 22.70 / 25.47 | 18.55 / 20.25 | 17.75 / 21.45 | 54.9 |
+| laya | 5 | 427 / 93 | 56.41 / 59.58 | 59.06 / 69.58 | 44.43 / 49.00 | 111.1 |
+| laya | 10 | 855 / 93 | 95.77 / 124.46 | 103.76 / 116.21 | 80.82 / 92.04 | 122.5 |
+| laya | 50 | 4237 / 93 | 489.54 / 515.80 | 462.36 / 504.59 | 347.24 / 372.44 | 143.3 |
+| laya-multilingual | 1 | 91 / 91 | 13.60 / 14.57 | 10.73 / 19.78 | 10.91 / 19.48 | 81.7 |
+| laya-multilingual | 5 | 432 / 91 | 27.82 / 28.98 | 21.94 / 23.72 | 19.28 / 20.81 | 268.5 |
+| laya-multilingual | 10 | 862 / 91 | 43.87 / 45.70 | 37.47 / 40.42 | 32.92 / 39.56 | 295.3 |
+| laya-multilingual | 50 | 4287 / 91 | 195.16 / 217.52 | 159.39 / 167.86 | 125.49 / 134.11 | 402.2 |
+| laya-typed-decisions | 1 | 93 / 93 | 22.85 / 25.62 | 18.53 / 21.42 | 16.17 / 17.74 | 61.7 |
+| laya-typed-decisions | 5 | 427 / 93 | 57.44 / 58.65 | 52.13 / 54.90 | 45.70 / 48.92 | 110.1 |
+| laya-typed-decisions | 10 | 855 / 93 | 98.80 / 101.75 | 91.12 / 95.09 | 81.38 / 86.05 | 122.8 |
+| laya-typed-decisions | 50 | 4237 / 93 | 489.12 / 514.73 | 410.98 / 452.81 | 325.76 / 335.83 | 153.2 |
 
 ## Full-context latency
 
@@ -43,12 +43,12 @@ Long input fills each checkpoint's configured limit, including question and opti
 
 | Checkpoint | Questions | Padded length | PyTorch MPS FP32 P50 | MLX FP32 P50 | MLX FP16 P50 |
 |---|---:|---:|---:|---:|---:|
-| laya | 1 | 512 | 65.58 | 61.33 | 44.93 |
-| laya | 10 | 512 | 586.59 | 534.24 | 420.99 |
-| laya-multilingual | 1 | 1024 | 52.94 | 47.21 | 37.63 |
-| laya-multilingual | 10 | 1024 | 534.49 | 451.33 | 389.49 |
-| laya-typed-decisions | 1 | 1024 | 116.80 | 117.67 | 99.23 |
-| laya-typed-decisions | 10 | 1024 | 1440.33 | 1231.17 | 1000.29 |
+| laya | 1 | 512 | 64.09 | 64.79 | 49.84 |
+| laya | 10 | 512 | 653.74 | 540.00 | 420.46 |
+| laya-multilingual | 1 | 1024 | 54.39 | 51.47 | 43.50 |
+| laya-multilingual | 10 | 1024 | 528.11 | 452.67 | 338.82 |
+| laya-typed-decisions | 1 | 1024 | 118.64 | 115.59 | 99.95 |
+| laya-typed-decisions | 10 | 1024 | 1258.13 | 1116.65 | 885.05 |
 
 ## Memory
 
@@ -57,7 +57,7 @@ MLX peak allocated memory includes model weights, inputs and intermediates; cach
 | Checkpoint | Parameters | FP16 weights (MiB) | FP16 peak: 1 short question (MiB) | FP16 peak: 10 full-context questions (MiB) |
 |---|---:|---:|---:|---:|
 | laya | 421,293,827 | 803.6 | 943.6 | 1833.0 |
-| laya-multilingual | 321,908,995 | 614.0 | 687.6 | 1501.7 |
+| laya-multilingual | 321,908,995 | 614.0 | 687.6 | 1509.1 |
 | laya-typed-decisions | 421,293,827 | 803.6 | 943.6 | 1643.7 |
 
 ## Numerical parity and stability
@@ -103,7 +103,7 @@ AG News test split: 256 examples, equal class counts, seed 20260919. This is a s
 uv sync --extra dev --extra reference --extra benchmark --extra demo
 source .venv/bin/activate
 gh repo clone NandhaKishorM/laya .upstream
-git -C .upstream checkout 6a5819129eb220570792e417e49723d697efd76f
+git -C .upstream checkout 573e5b62696ba441230cd6be71d593331b5d23af
 python -m benchmarks.download
 pytest -q
 python -m benchmarks.validate --repeats 100

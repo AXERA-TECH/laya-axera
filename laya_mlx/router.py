@@ -30,6 +30,7 @@ synthetic workflows and should not be a silent default.
 """
 
 import os
+import threading
 from typing import Any, Dict, List, Optional, Union
 
 from .lang import analyse
@@ -187,38 +188,51 @@ class Router:
         self.auto_task_detection = bool(auto_task_detection)
         self._agents: Dict[str, Any] = {}
         self._order: List[str] = []  # least-recently-used first
+        # Re-entrant lock guarding model lifecycle (load/unload/attach/preload) and the
+        # LRU bookkeeping. RLock so the public methods can call the private `_touch`/`_evict`
+        # helpers without deadlocking. Inference (`Agent.system_one`) is deliberately left
+        # outside the lock so concurrent predictions share a checkpoint without serialising.
+        self._lock = threading.RLock()
         if preload:
             self.preload()
 
     # ------------------------------------------------------------------ loading
     def load(self, name: str):
-        """Return the Agent for `name`, downloading and building it on first use."""
-        key = normalise_name(name)
-        if key in self._agents:
-            self._touch(key)
-            return self._agents[key]
-        from .agent import Agent
+        """Return the Agent for `name`, downloading and building it on first use.
 
-        repo, sub = _split(self.models[key])
-        agent = Agent(repo, device=self.device, token=self.token, subfolder=sub, dtype=self.dtype)
-        self._agents[key] = agent
-        self._order.append(key)
-        self._evict()
-        return agent
+        Concurrent callers share a single Agent instead of building duplicates.
+        """
+        key = normalise_name(name)
+        with self._lock:
+            if key in self._agents:
+                self._touch(key)
+                return self._agents[key]
+            from .agent import Agent
+
+            repo, sub = _split(self.models[key])
+            agent = Agent(
+                repo, device=self.device, token=self.token, subfolder=sub, dtype=self.dtype
+            )
+            self._agents[key] = agent
+            self._order.append(key)
+            self._evict()
+            return agent
 
     def _touch(self, key: str):
-        if key in self._order:
-            self._order.remove(key)
-        self._order.append(key)
+        with self._lock:
+            if key in self._order:
+                self._order.remove(key)
+            self._order.append(key)
 
     def _evict(self):
-        while len(self._order) > self.max_loaded:
-            victim = self._order.pop(0)
-            self._agents.pop(victim, None)
-        if len(self._order) < len(self._agents):  # keep the two views consistent
-            for k in list(self._agents):
-                if k not in self._order:
-                    self._agents.pop(k, None)
+        with self._lock:
+            while len(self._order) > self.max_loaded:
+                victim = self._order.pop(0)
+                self._agents.pop(victim, None)
+            if len(self._order) < len(self._agents):  # keep the two views consistent
+                for k in list(self._agents):
+                    if k not in self._order:
+                        self._agents.pop(k, None)
 
     def attach(self, name: str, agent: Any):
         """Register an already-built Agent under `name` instead of loading a second copy.
@@ -228,9 +242,10 @@ class Router:
         in memory -- a duplicate 421M parameters.
         """
         key = normalise_name(name)
-        self._agents[key] = agent
-        self._touch(key)
-        self.max_loaded = max(self.max_loaded, len(self._agents))
+        with self._lock:
+            self._agents[key] = agent
+            self._touch(key)
+            self.max_loaded = max(self.max_loaded, len(self._agents))
         return agent
 
     def preload(self, names: Optional[List[str]] = None):
@@ -242,26 +257,29 @@ class Router:
         the LRU would immediately evict what this just built.
         """
         names = [normalise_name(n) for n in (names or list(self.models))]
-        self.max_loaded = max(self.max_loaded, len(names), len(self._agents))
-        for n in names:
-            if n not in self._agents:  # an attached agent is already built
-                self.load(n)
+        with self._lock:
+            self.max_loaded = max(self.max_loaded, len(names), len(self._agents))
+            for n in names:
+                if n not in self._agents:  # an attached agent is already built
+                    self.load(n)
         return self
 
     def unload(self, name: Optional[str] = None):
         """Free one model, or all of them."""
-        if name is None:
-            self._agents.clear()
-            self._order.clear()
-        else:
-            key = normalise_name(name)
-            self._agents.pop(key, None)
-            if key in self._order:
-                self._order.remove(key)
+        with self._lock:
+            if name is None:
+                self._agents.clear()
+                self._order.clear()
+            else:
+                key = normalise_name(name)
+                self._agents.pop(key, None)
+                if key in self._order:
+                    self._order.remove(key)
 
     @property
     def loaded(self) -> List[str]:
-        return list(self._order)
+        with self._lock:
+            return list(self._order)
 
     # ------------------------------------------------------------------ routing
     def route(
@@ -337,7 +355,15 @@ class Router:
             )
         elif not det["is_english"]:
             key = "multilingual"
-            reason = "Latin script but language looks like %r, not English" % det["language"]
+            if det["language"]:
+                reason = "Latin script but language looks like %r, not English" % det["language"]
+            else:
+                # Unidentified Latin-script language: routed on the non-English letters alone,
+                # because no stopword list here covers it.
+                reason = (
+                    "Latin script, language not identified but %.0f%% non-English letters; "
+                    "not safe for the English checkpoint" % (100 * float(det["diacritic_rate"]))
+                )
         else:
             key = "english"
             reason = "English Latin text"

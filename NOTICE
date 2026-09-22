@@ -4,7 +4,7 @@ Copyright 2026 laya-mlx contributors
 This product includes software derived from Laya:
 https://github.com/NandhaKishorM/laya
 Copyright Convai Innovations and Laya contributors. Licensed under Apache-2.0.
-Upstream source revision: 6a5819129eb220570792e417e49723d697efd76f
+Upstream source revision: 573e5b62696ba441230cd6be71d593331b5d23af
 
 The token sequence construction, question rendering, confidence calculation,
 presets, email utilities and language router are adapted from Laya.
