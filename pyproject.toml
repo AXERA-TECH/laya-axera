@@ -3,57 +3,51 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "laya-mlx"
+name = "laya-axera"
 version = "0.1.0"
-description = "Native MLX inference for Laya typed decision models on Apple silicon"
-keywords = ["mlx", "laya", "typed-decisions", "decision-model", "local-ai", "apple-silicon"]
+description = "Laya typed-decision inference on AXERA NPUs (AX650 / AX8850) with PyAXEngine"
+keywords = ["axera", "ax650", "npu", "laya", "typed-decisions", "decision-model", "pyaxengine"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 license = "Apache-2.0"
 dependencies = [
-  "mlx>=0.32.2,<0.33; sys_platform == 'darwin' and platform_machine == 'arm64'",
-  "numpy>=1.26",
-  "huggingface-hub>=0.34,<2",
+  "numpy>=1.24",
   "tokenizers>=0.21,<1",
 ]
 
 [project.optional-dependencies]
+web = ["fastapi>=0.110", "uvicorn>=0.23", "pydantic>=2"]
 dev = ["pytest>=8", "ruff>=0.12", "build>=1"]
-reference = ["torch>=2.14,<3", "transformers>=5.17,<6", "safetensors>=0.6"]
-benchmark = ["matplotlib>=3.10", "pyarrow>=18"]
-demo = ["rich>=15,<16", "Pillow>=12,<13"]
 
 [project.scripts]
-laya-mlx = "laya_mlx.cli:main"
-laya-snake = "laya_mlx.snake.cli:main"
+laya-axera = "laya_axera.cli:main"
 
 [project.urls]
-Repository = "https://github.com/mizorewww/laya-mlx"
+Repository = "https://github.com/ZHEQIUSHUI/laya-axera"
+Models = "https://huggingface.co/AXERA-TECH/Laya"
 Upstream = "https://github.com/NandhaKishorM/laya"
-Documentation = "https://github.com/mizorewww/laya-mlx#readme"
-Issues = "https://github.com/mizorewww/laya-mlx/issues"
-Benchmarks = "https://github.com/mizorewww/laya-mlx/blob/main/BENCHMARKS.md"
+MLXPort = "https://github.com/mizorewww/laya-mlx"
+Runtime = "https://github.com/AXERA-TECH/pyaxengine"
 
 [tool.hatch.build.targets.wheel]
-packages = ["laya_mlx"]
+packages = ["laya_axera"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/laya_mlx", "/pyproject.toml", "/README.md", "/LICENSE", "/NOTICE"]
+include = ["/laya_axera", "/pyproject.toml", "/README.md", "/LICENSE", "/NOTICE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: requires downloaded Laya checkpoints"]
+markers = ["integration: requires an AXERA NPU and downloaded Laya AXModels"]
 
 [tool.ruff]
 line-length = 100
-extend-exclude = [".upstream"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

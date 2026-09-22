@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya on AXERA</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #898781;
+  --grid: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.10);
+  --blue: #2a78d6;
+  --blue-soft: rgba(42, 120, 214, 0.16);
+  --orange: #eb6834;
+  --good: #006300;
+  --critical: #d03b3b;
+  --board: #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-3: #898781;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.10);
+    --blue: #3987e5;
+    --blue-soft: rgba(57, 135, 229, 0.22);
+    --orange: #d95926;
+    --good: #0ca30c;
+    --critical: #d03b3b;
+    --board: #131312;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-3: #898781;
+  --grid: #2c2c2a;
+  --border: rgba(255, 255, 255, 0.10);
+  --blue: #3987e5;
+  --blue-soft: rgba(57, 135, 229, 0.22);
+  --orange: #d95926;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+  --board: #131312;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+}
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid var(--grid);
+  flex-wrap: wrap;
+}
+.brand { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+.brand small { font-weight: 400; color: var(--ink-3); font-size: 13px; margin-left: 10px; }
+nav { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+nav button {
+  border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 14px;
+  padding: 4px 14px; border-radius: 4px; cursor: pointer;
+}
+nav button.active { background: var(--blue-soft); color: var(--ink); font-weight: 600; }
+#engine { margin-left: auto; color: var(--ink-3); font-size: 13px; }
+#engine b { color: var(--ink-2); font-weight: 600; }
+
+main { max-width: 1180px; margin: 0 auto; padding: 20px 24px 60px; }
+section[hidden] { display: none; }
+
+/* ---- checkpoint chips ---- */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.chip {
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
+  font: inherit; font-size: 14px; padding: 5px 14px; border-radius: 999px; cursor: pointer;
+}
+.chip.active { border-color: var(--blue); color: var(--ink); font-weight: 600; }
+.chip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); margin-right: 7px; vertical-align: 1px; }
+.chip.ready .dot { background: var(--good); }
+.chip.loading .dot { background: var(--orange); }
+
+/* ---- decisions view ---- */
+.decide-grid { display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; gap: 32px; }
+.composer label { display: block; font-size: 13px; color: var(--ink-3); margin: 14px 0 5px; }
+.composer label:first-of-type { margin-top: 0; }
+textarea {
+  width: 100%; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;
+  font-size: 13.5px; line-height: 1.5; resize: vertical;
+}
+textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 1px;
+}
+#state { min-height: 88px; }
+#questions { min-height: 260px; }
+.composer .actions { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+.btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 14px; padding: 7px 16px; border-radius: 6px; cursor: pointer;
+}
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.error {
+  color: var(--critical); font-size: 13.5px; margin-top: 12px; white-space: pre-wrap;
+}
+
+.results .placeholder { color: var(--ink-3); padding-top: 6px; }
+.answer { border-top: 1px solid var(--grid); padding: 16px 0 18px; }
+.answer:first-child { border-top: 0; padding-top: 2px; }
+.answer h3 { margin: 0 0 2px; font-size: 15px; font-weight: 650; }
+.answer h3 .qtype { color: var(--ink-3); font-weight: 400; font-size: 13px; margin-left: 8px; }
+.answer .instructions { color: var(--ink-2); font-size: 13.5px; margin: 0 0 12px; }
+
+.bar-row { display: grid; grid-template-columns: minmax(90px, 220px) 1fr 56px; gap: 12px; align-items: center; padding: 3px 0; }
+.bar-row .opt { font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-row.chosen .opt { color: var(--ink); font-weight: 650; }
+.bar-row .track { display: block; height: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.bar-row .fill { display: block; height: 100%; width: 0; background: var(--blue); border-radius: 3px; transition: width 0.35s ease; }
+.bar-row.chosen .fill { background: var(--blue); }
+.bar-row:not(.chosen) .fill { opacity: 0.45; }
+.bar-row .val { font-size: 13px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.bar-row.chosen .val { color: var(--ink); font-weight: 650; }
+@media (prefers-reduced-motion: reduce) { .bar-row .fill { transition: none; } }
+
+.score-line { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 10px; }
+.score-line .num { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.score-line .of { color: var(--ink-3); font-size: 13px; }
+
+.answer .meta { color: var(--ink-3); font-size: 12.5px; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.total-strip {
+  border-top: 1px solid var(--grid); padding-top: 14px; color: var(--ink-2);
+  font-size: 13.5px; font-variant-numeric: tabular-nums;
+}
+
+/* ---- snake view ---- */
+.snake-grid { display: grid; grid-template-columns: minmax(300px, 1fr) 340px; gap: 32px; align-items: start; }
+.board-wrap { position: relative; }
+#board {
+  width: 100%; display: block; background: var(--board);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px;
+  align-items: center; justify-content: center; text-align: center;
+  background: color-mix(in srgb, var(--page) 72%, transparent);
+  border-radius: 6px; font-size: 17px; font-weight: 650;
+}
+.overlay small { font-weight: 400; color: var(--ink-2); font-size: 13.5px; }
+.overlay[hidden] { display: none; }
+
+.rail .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+.rail .controls label { font-size: 13px; color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
+.rail select, .rail input[type="range"] { font: inherit; }
+.rail select {
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 8px; font-size: 13.5px;
+}
+.dir-rows { margin: 4px 0 14px; }
+.rail .bar-row { grid-template-columns: 64px 1fr 62px; }
+.decision-note { font-size: 13.5px; color: var(--ink-2); min-height: 22px; margin-bottom: 14px; }
+.decision-note .flag { color: var(--critical); font-weight: 650; }
+.gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; margin-bottom: 18px; }
+.gauge .glabel { font-size: 12.5px; color: var(--ink-3); margin-bottom: 3px; }
+.gauge .track { height: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.gauge .fill { height: 100%; width: 0; background: var(--blue); transition: width 0.3s ease; }
+.gauge .gval { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 18px; border-top: 1px solid var(--grid); padding-top: 14px; }
+.stat .slabel { font-size: 12px; color: var(--ink-3); }
+.stat .sval { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stat .sval small { font-size: 12px; color: var(--ink-3); font-weight: 400; }
+
+@media (max-width: 940px) {
+  .decide-grid, .snake-grid { grid-template-columns: 1fr; }
+  main { padding: 16px 16px 48px; }
+  header { padding: 14px 16px 12px; gap: 14px; }
+  #engine { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">laya-axera<small>Laya 决策模型 · AXERA NPU 实机推理</small></div>
+  <nav>
+    <button id="nav-decide" class="active">决策台</button>
+    <button id="nav-snake">贪吃蛇</button>
+  </nav>
+  <div id="engine">连接中…</div>
+</header>
+
+<main>
+  <div class="chips" id="chips"></div>
+
+  <section id="view-decide">
+    <div class="decide-grid">
+      <div class="composer">
+        <label for="state">状态 state — 待评估的文本或 JSON 记录</label>
+        <textarea id="state" class="mono" spellcheck="false"></textarea>
+        <label for="questions">问题 questions — choice / score / noul 决策定义（JSON）</label>
+        <textarea id="questions" class="mono" spellcheck="false"></textarea>
+        <div class="actions">
+          <button class="btn primary" id="run">在 NPU 上运行</button>
+          <button class="btn" id="load-sample">载入官方示例</button>
+        </div>
+        <div class="error" id="decide-error" hidden></div>
+      </div>
+      <div class="results" id="results">
+        <p class="placeholder">提交一个请求，每个问题的答案、概率分布与 NPU 延迟会显示在这里。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-snake" hidden>
+    <div class="snake-grid">
+      <div class="board-wrap">
+        <canvas id="board" width="960" height="640" aria-label="贪吃蛇棋盘，每一步由 Laya 在 NPU 上实时决策"></canvas>
+        <div class="overlay" id="overlay">
+          <div id="overlay-title">每一步都是一次真实的 NPU 决策</div>
+          <small id="overlay-sub">选择 checkpoint 后点击「新开一局」。multilingual 最快（约 31 ms/问题）。</small>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="controls">
+          <button class="btn primary" id="snake-new">新开一局</button>
+          <button class="btn" id="snake-toggle" disabled>暂停</button>
+          <label>速度
+            <input type="range" id="speed" min="1" max="11" value="6" aria-label="每秒步数，最右为不限速">
+          </label>
+          <label><input type="checkbox" id="guarded" checked> 安全护栏</label>
+          <label>提示词
+            <select id="prompt-style">
+              <option value="compact" selected>compact</option>
+              <option value="detailed">detailed</option>
+            </select>
+          </label>
+        </div>
+        <div class="dir-rows" id="dir-rows"></div>
+        <div class="decision-note" id="decision-note">模型对四个方向给出概率，护栏只在提议不安全时纠正。</div>
+        <div class="gauges">
+          <div class="gauge"><div class="glabel">死路风险 dead-end risk</div><div class="track"><div class="fill" id="g-risk"></div></div><div class="gval" id="g-risk-v">–</div></div>
+          <div class="gauge"><div class="glabel">食物可达 food reachable</div><div class="track"><div class="fill" id="g-food"></div></div><div class="gval" id="g-food-v">–</div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="slabel">得分</div><div class="sval" id="s-score">0</div></div>
+          <div class="stat"><div class="slabel">步数</div><div class="sval" id="s-moves">0</div></div>
+          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="s-int">0</div></div>
+          <div class="stat"><div class="slabel">单步推理</div><div class="sval" id="s-inf">–<small> ms</small></div></div>
+          <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="s-mps">–<small> 步/s</small></div></div>
+          <div class="stat"><div class="slabel">蛇身长度</div><div class="sval" id="s-len">–</div></div>
+        </div>
+        <div class="error" id="snake-error" hidden></div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const DIRS = ["UP", "DOWN", "LEFT", "RIGHT"];
+const DIR_LABEL = { UP: "↑ 上", DOWN: "↓ 下", LEFT: "← 左", RIGHT: "→ 右" };
+
+const state = {
+  models: [],
+  current: null,
+  snake: null, // {session, playing, gen, lastTick}
+};
+
+const pct = (v) => (v * 100).toFixed(1) + "%";
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.status + " " + res.statusText);
+  return data;
+}
+
+/* ---------- header + checkpoints ---------- */
+
+async function refreshInfo(silent) {
+  try {
+    const info = await api("/api/info");
+    state.models = info.models;
+    if (!state.current) state.current = info.default_model;
+    const ready = info.models.find((m) => m.name === state.current && m.status === "ready");
+    $("engine").innerHTML = ready
+      ? `<b>${ready.model_name}</b> 已驻留 &nbsp; ${ready.provider === "AXCLRTExecutionProvider" ? "AXCL 卡 " + ready.device_id : "AX650 片上"} &nbsp; laya-axera ${info.version}`
+      : `laya-axera ${info.version}`;
+    renderChips();
+  } catch (err) {
+    if (!silent) $("engine").textContent = "服务不可达：" + err.message;
+  }
+}
+
+function renderChips() {
+  const box = $("chips");
+  box.innerHTML = "";
+  for (const m of state.models) {
+    const b = document.createElement("button");
+    b.className = "chip " + m.status + (m.name === state.current ? " active" : "");
+    b.innerHTML = `<span class="dot"></span>${m.name}`;
+    b.title = { ready: "已加载", loading: "加载中…", unloaded: "首次运行时加载", error: m.error || "加载失败" }[m.status] || "";
+    b.onclick = () => { state.current = m.name; renderChips(); refreshInfo(true); };
+    box.appendChild(b);
+  }
+}
+
+/* ---------- decisions view ---------- */
+
+async function loadSample() {
+  hide("decide-error");
+  try {
+    const req = await api(`/api/samples/${state.current}`);
+    $("state").value = typeof req.state === "string" ? req.state : JSON.stringify(req.state, null, 2);
+    $("questions").value = JSON.stringify(req.questions, null, 2);
+  } catch (err) {
+    showError("decide-error", err.message);
+  }
+}
+
+function parseState(text) {
+  const t = text.trim();
+  if (t.startsWith("{") || t.startsWith("[")) {
+    try { return JSON.parse(t); } catch { return text; }
+  }
+  return text;
+}
+
+async function runPredict() {
+  hide("decide-error");
+  let questions;
+  try {
+    questions = JSON.parse($("questions").value);
+  } catch (err) {
+    return showError("decide-error", "questions 不是合法 JSON：" + err.message);
+  }
+  const btn = $("run");
+  btn.disabled = true;
+  const loaded = state.models.some((m) => m.name === state.current && m.status === "ready");
+  btn.textContent = loaded ? "推理中…" : "加载模型并推理…";
+  try {
+    const result = await api("/api/predict", {
+      model: state.current,
+      state: parseState($("state").value),
+      questions,
+    });
+    renderResults(result, questions);
+  } catch (err) {
+    showError("decide-error", err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "在 NPU 上运行";
+    refreshInfo(true);
+  }
+}
+
+function barRow(label, value, chosen) {
+  const row = document.createElement("div");
+  row.className = "bar-row" + (chosen ? " chosen" : "");
+  row.innerHTML = `<span class="opt" title="${esc(label)}">${chosen ? "✓ " : ""}${esc(label)}</span>
+    <span class="track"><span class="fill"></span></span>
+    <span class="val">${pct(value)}</span>`;
+  requestAnimationFrame(() => { row.querySelector(".fill").style.width = (value * 100).toFixed(2) + "%"; });
+  return row;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function renderResults(result, questions) {
+  const box = $("results");
+  box.innerHTML = "";
+  for (const [name, a] of Object.entries(result.answers)) {
+    const q = questions[name] || {};
+    const card = document.createElement("div");
+    card.className = "answer";
+    card.innerHTML = `<h3>${esc(name)}<span class="qtype">${a.type}</span></h3>
+      <p class="instructions">${esc(q.instructions || "")}</p>`;
+    if (a.type === "choice") {
+      for (const [label, p] of Object.entries(a.probabilities)) {
+        card.appendChild(barRow(label, p, label === a.choice));
+      }
+    } else if (a.type === "score") {
+      const levels = Object.keys(a.probabilities).length;
+      const line = document.createElement("div");
+      line.className = "score-line";
+      line.innerHTML = `<span class="num">${a.score.toFixed(3)}</span><span class="of">期望分 / 最高 ${levels - 1}</span>`;
+      card.appendChild(line);
+      const best = Object.entries(a.probabilities).reduce((x, y) => (y[1] > x[1] ? y : x))[0];
+      for (const [i, p] of Object.entries(a.probabilities)) {
+        card.appendChild(barRow(`level ${i} — ${a.legend[i]}`, p, i === best));
+      }
+    } else {
+      card.appendChild(barRow("true 成立", a.noul, a.noul >= 0.5));
+      card.appendChild(barRow("false 不成立", 1 - a.noul, a.noul < 0.5));
+    }
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `置信度 ${a.confidence.toFixed(4)} · act ${a.action.act_probability.toFixed(2)} · NPU ${a.npu_latency_ms.toFixed(1)} ms`;
+    card.appendChild(meta);
+    box.appendChild(card);
+  }
+  const total = document.createElement("div");
+  total.className = "total-strip";
+  total.textContent = `${result.model} 共 ${Object.keys(result.answers).length} 个问题：NPU 累计 ${result.total_npu_latency_ms.toFixed(1)} ms，输入 ${result.usage.input_tokens} tokens`;
+  box.appendChild(total);
+}
+
+/* ---------- snake view ---------- */
+
+function initDirRows() {
+  const box = $("dir-rows");
+  box.innerHTML = "";
+  for (const d of DIRS) {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.id = "dir-" + d;
+    row.innerHTML = `<span class="opt">${DIR_LABEL[d]}</span>
+      <span class="track"><span class="fill"></span></span>
+      <span class="val">–</span>`;
+    box.appendChild(row);
+  }
+}
+
+function updateDirRows(decision) {
+  for (const d of DIRS) {
+    const row = $("dir-" + d);
+    const p = decision ? decision.probabilities[d] : 0;
+    row.classList.toggle("chosen", !!decision && decision.executed === d);
+    row.querySelector(".fill").style.width = (p * 100).toFixed(2) + "%";
+    row.querySelector(".val").textContent = decision ? pct(p) : "–";
+    const opt = row.querySelector(".opt");
+    opt.textContent = (decision && decision.executed === d ? "✓ " : "") + DIR_LABEL[d];
+  }
+  const note = $("decision-note");
+  if (!decision) {
+    note.textContent = "模型对四个方向给出概率，护栏只在提议不安全时纠正。";
+  } else if (decision.intervened) {
+    note.innerHTML = `<span class="flag">护栏干预</span>：模型提议 ${DIR_LABEL[decision.proposed]}（不安全），改走 ${DIR_LABEL[decision.executed]}`;
+  } else {
+    note.textContent = `模型提议 ${DIR_LABEL[decision.proposed]}，与安全集一致，直接执行。`;
+  }
+  $("g-risk").style.width = decision ? (decision.dead_end_risk * 100).toFixed(1) + "%" : "0";
+  $("g-risk-v").textContent = decision ? pct(decision.dead_end_risk) : "–";
+  $("g-food").style.width = decision ? (decision.food_reachable * 100).toFixed(1) + "%" : "0";
+  $("g-food-v").textContent = decision ? pct(decision.food_reachable) : "–";
+}
+
+function drawBoard(snap) {
+  const canvas = $("board");
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
+  const css = getComputedStyle(document.documentElement);
+  ctx.fillStyle = css.getPropertyValue("--board").trim();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = css.getPropertyValue("--grid").trim();
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 1; x < snap.width; x++) { ctx.moveTo(x * cw, 0); ctx.lineTo(x * cw, canvas.height); }
+  for (let y = 1; y < snap.height; y++) { ctx.moveTo(0, y * ch); ctx.lineTo(canvas.width, y * ch); }
+  ctx.stroke();
+  const blue = css.getPropertyValue("--blue").trim();
+  const pad = Math.max(1.5, cw * 0.08);
+  snap.body.forEach(([x, y], i) => {
+    ctx.fillStyle = blue;
+    ctx.globalAlpha = i === 0 ? 1 : Math.max(0.35, 0.85 - (i / snap.body.length) * 0.5);
+    roundRect(ctx, x * cw + pad, y * ch + pad, cw - 2 * pad, ch - 2 * pad, 4);
+  });
+  ctx.globalAlpha = 1;
+  if (snap.food) {
+    ctx.fillStyle = css.getPropertyValue("--orange").trim();
+    ctx.beginPath();
+    ctx.arc((snap.food[0] + 0.5) * cw, (snap.food[1] + 0.5) * ch, Math.min(cw, ch) * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+}
+
+function updateStats(snap, stats, decision) {
+  $("s-score").textContent = snap.score;
+  $("s-moves").textContent = stats ? stats.moves : 0;
+  $("s-int").textContent = stats ? stats.interventions : 0;
+  $("s-len").textContent = snap.length;
+  if (decision) $("s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
+  if (state.snake && state.snake.lastTick) {
+    const dt = (performance.now() - state.snake.lastTick) / 1000;
+    if (dt > 0) $("s-mps").innerHTML = (1 / dt).toFixed(1) + "<small> 步/s</small>";
+  }
+}
+
+async function snakeNew() {
+  hide("snake-error");
+  $("snake-new").disabled = true;
+  $("snake-new").textContent = "加载中…";
+  try {
+    const data = await api("/api/snake/new", {
+      model: state.current,
+      guarded: $("guarded").checked,
+      prompt: $("prompt-style").value,
+    });
+    state.snake = { session: data.session, playing: true, gen: (state.snake ? state.snake.gen : 0) + 1, lastTick: 0 };
+    $("overlay").hidden = true;
+    $("snake-toggle").disabled = false;
+    $("snake-toggle").textContent = "暂停";
+    initDirRows();
+    updateDirRows(null);
+    drawBoard(data.state);
+    updateStats(data.state, null, null);
+    refreshInfo(true);
+    loop(state.snake.gen);
+  } catch (err) {
+    showError("snake-error", err.message);
+  } finally {
+    $("snake-new").disabled = false;
+    $("snake-new").textContent = "新开一局";
+  }
+}
+
+async function loop(gen) {
+  const s = state.snake;
+  if (!s || s.gen !== gen || !s.playing) return;
+  const speed = Number($("speed").value);
+  const target = speed >= 11 ? 0 : 1000 / speed;
+  const t0 = performance.now();
+  let data;
+  try {
+    data = await api("/api/snake/step", { session: s.session });
+  } catch (err) {
+    showError("snake-error", err.message);
+    s.playing = false;
+    $("snake-toggle").disabled = true;
+    return;
+  }
+  if (!state.snake || state.snake.gen !== gen) return;
+  if (data.decision) updateDirRows(data.decision);
+  drawBoard(data.state);
+  updateStats(data.state, data.stats, data.decision);
+  s.lastTick = t0;
+  if (data.done) {
+    s.playing = false;
+    $("snake-toggle").disabled = true;
+    const t = $("overlay-title"), sub = $("overlay-sub");
+    if (data.state.won) { t.textContent = "填满棋盘，获胜"; sub.textContent = `得分 ${data.state.score}`; }
+    else {
+      const reason = { wall: "撞墙", body: "撞到蛇身", reverse: "反向移动" }[data.state.death_reason] || data.state.death_reason;
+      t.textContent = "本局结束：" + reason;
+      sub.textContent = `得分 ${data.state.score}，共 ${data.state.ticks} 步。关闭护栏时模型独立决策，撞车属于正常现象。`;
+    }
+    $("overlay").hidden = false;
+    return;
+  }
+  const elapsed = performance.now() - t0;
+  setTimeout(() => loop(gen), Math.max(0, target - elapsed));
+}
+
+function snakeToggle() {
+  const s = state.snake;
+  if (!s) return;
+  s.playing = !s.playing;
+  $("snake-toggle").textContent = s.playing ? "暂停" : "继续";
+  if (s.playing) loop(s.gen);
+}
+
+/* ---------- shell ---------- */
+
+function showError(id, msg) { const el = $(id); el.textContent = msg; el.hidden = false; }
+function hide(id) { $(id).hidden = true; }
+
+function switchView(name) {
+  $("view-decide").hidden = name !== "decide";
+  $("view-snake").hidden = name !== "snake";
+  $("nav-decide").classList.toggle("active", name === "decide");
+  $("nav-snake").classList.toggle("active", name === "snake");
+}
+
+$("nav-decide").onclick = () => switchView("decide");
+$("nav-snake").onclick = () => switchView("snake");
+$("run").onclick = runPredict;
+$("load-sample").onclick = loadSample;
+$("snake-new").onclick = snakeNew;
+$("snake-toggle").onclick = snakeToggle;
+
+initDirRows();
+(async () => { await refreshInfo(); if (state.current) loadSample(); })();
+setInterval(() => refreshInfo(true), 15000);
+</script>
+</body>
+</html>

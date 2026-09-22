@@ -1,162 +1,135 @@
-# Laya-MLX
+# Laya-AXERA
 
-![Laya MLX 实际运行记录，原速回放](docs/assets/snake-demo.gif)
+**在爱芯元智（AXERA）边缘 NPU 上运行的开源权重类型化决策模型。**
 
-**在 Apple Silicon 上本地运行开放权重的结构化决策模型。**
+基于 [PyAXEngine](https://github.com/AXERA-TECH/pyaxengine) 推理
+[AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Laya) 的 AXModel checkpoint，
+并提供网页演示：决策台 + 每一步都由 Laya 实时决策的贪吃蛇。
 
-单个短问题端到端中位耗时 **13.4 ms**；multilingual 检查点为 **7.4 ms**。**0 个输出 token**，原生 MLX，无 PyTorch / Transformers 推理依赖，无云端 API。
+单张 AX650N（AXCL）上 multilingual checkpoint **约 31 ms/问题**，**0 个输出 token**。
+不依赖 PyTorch / Transformers 运行时 / 云端 API —— 分词用 Hugging Face Rust tokenizer，
+编码器全部在 NPU 上执行。
 
-[English](README.md) · [完整 benchmark](BENCHMARKS.md) · [Snake 使用说明](docs/SNAKE_DEMO.md) · [30 秒 MP4](docs/assets/snake-demo.mp4)
+[English](README.md) ·
+[模型包](https://huggingface.co/AXERA-TECH/Laya) ·
+[上游 Laya](https://github.com/NandhaKishorM/laya) ·
+[所适配的 MLX 移植版](https://github.com/mizorewww/laya-mlx)
 
-GIF 使用真实游戏记录按原始时间戳渲染。每步都调用 Laya，界面显示循环路径安全层及其接管次数。上面的 13.4 / 7.4 ms 来自**单问题 API 基准**，并非每步批量回答三个问题的 Snake 帧耗时；游戏速度见[独立报告](docs/SNAKE_BENCHMARKS.md)。
+Laya 是双向决策模型：对文本或结构化状态回答受约束的问题，单次前向完成，不生成文本。
 
-## 快速开始
+- `choice`：在 2–4 个命名选项上给出概率分布。
+- `score`：在 2–4 个有序等级上给出概率与期望分。
+- `noul`：命题成立的概率 P(true)。
+
+## 支持平台
+
+| 平台 | Provider | 说明 |
+|---|---|---|
+| AX650 / AX8850 板端（片上） | `AxEngineExecutionProvider` | aarch64, NPU3 |
+| x86/arm64 主机 + AXCL 卡（PCIe / M.2） | `AXCLRTExecutionProvider` | `device_id` 选卡 |
+
+Provider 自动选择，也可通过 `provider=` 强制指定。
+
+## 安装
 
 ```bash
-pip install laya-mlx
+git clone https://github.com/ZHEQIUSHUI/laya-axera.git
+cd laya-axera
+pip install -e '.[web]'
 ```
 
-```python
-import laya_mlx as laya
+PyAXEngine 不在 PyPI 上，请先在设备/主机上安装
+[pyaxengine releases](https://github.com/AXERA-TECH/pyaxengine/releases) 的 `axengine` wheel。
+解析 ModernBERT / mmBERT 的 tokenizer 需要 `tokenizers>=0.21`
+（Transformers 4.41 自带的版本过旧）。
 
-agent = laya.load("aac6fef/laya-multilingual-mlx")
+下载模型包（三个 checkpoint，约 1.5 GiB）：
+
+```bash
+hf download AXERA-TECH/Laya --local-dir models/Laya
+# 国内可用 hf-mirror.com 或 ModelScope
+```
+
+| Checkpoint | 骨干 | 单问题 NPU 延迟 | 推荐用途 |
+|---|---|---:|---|
+| `english/` | ModernBERT-large | 片上约 70 ms，AXCL 约 74 ms | 英文路由、护栏、工单分流 |
+| `multilingual/` | mmBERT-base | 片上约 28 ms，AXCL 约 31 ms | 中文及多语言输入 |
+| `typed-decisions/` | ModernBERT-large | 片上约 70 ms，AXCL 约 74 ms | 发票、安全、Agent 轨迹 |
+
+## Python API
+
+```python
+import laya_axera as laya
+
+agent = laya.load("models/Laya/multilingual")   # device_id=0，provider 自动选择
 result = agent.predict(
-    "发票被重复扣款，请退款。",
+    "发票4411重复扣款，请今天退还多扣的金额，否则我们会取消服务。",
     {
         "department": {
             "type": "choice",
-            "instructions": "Who should handle this?",
-            "criteria": ["billing", "technical", "sales"],
-        }
+            "instructions": "这条请求应由哪个团队处理？",
+            "criteria": {"billing": "扣款与退款", "technical": "故障报错", "sales": "价格采购"},
+        },
+        "urgency": {
+            "type": "score",
+            "instructions": "这条请求有多紧急？",
+            "criteria": ["常规", "尽快", "今天必须解决"],
+        },
+        "refund": {"type": "noul", "instructions": "用户是否明确要求退款？"},
     },
 )
-print(result["answers"]["department"])
+print(result["answers"]["department"]["choice"])        # billing
 ```
 
-运行贪吃蛇：
+`system_one` 是 `predict` 的别名；`predict_request` 直接接受模型包的
+`{"state": ..., "questions": ...}` 请求对象。输出 schema（choice / probabilities /
+score / legend / noul / confidence / `action.act_probability`）与上游 Laya 及打包的
+`axllm` 运行时一致，另附每个问题实测的 `npu_latency_ms`。
+
+## 命令行
 
 ```bash
-pip install 'laya-mlx[demo]'
-hf download aac6fef/laya-multilingual-mlx
-laya-snake
+# 单个请求文件（与模型包 sample_request.json 同格式）
+laya-axera run models/Laya/multilingual --input models/Laya/multilingual/sample_request.json
+
+# 驻留 JSON Lines 模式：每行一个请求，/exit 退出
+laya-axera run models/Laya/multilingual --device 1
+
+# 网页演示：8010 端口，三个 checkpoint 首次使用时加载
+laya-axera serve --root models/Laya --port 8010
 ```
 
-提前下载一次权重，游戏运行期间完全本地推理。终端至少 104 列 × 35 行；空格暂停、↑/↓ 调速、R 重开、Q 退出。`--max-speed` 持续满速运行，每一步等待新的模型结果。
+## 网页演示
 
-`laya-snake --optimize --max-speed` 启用已验证的编译与前缀复用路径。同轮成对测试中，2,400 步达到 **75.40 步/秒**，零死亡、安全接管 2 次，比 eager 基线快约 **6.5%**。[完整游戏表现、优化测量和一致性证据](docs/SNAKE_OPTIMIZATION.md)。
+- **决策台** —— 编辑 state 和 questions，提交到 NPU，以概率条形式查看答案与逐问题延迟；
+  一键载入所选 checkpoint 的板端验证示例。
+- **贪吃蛇** —— laya-mlx 贪吃蛇演示的网页版。每一步向驻留 checkpoint 问三个问题
+  （走向 / 风险 / 食物），确定性的循环安全护栏会纠正不安全的提议并统计每次干预。
+  multilingual + 单张 AXCL AX650N 约 10 步/秒。
 
-## M3 Max 实测
+接口：`GET /api/info`、`GET /api/samples/{name}`、`POST /api/predict`、
+`POST /api/snake/new`、`POST /api/snake/step`。
 
-| FP16，端到端 | Laya 421M | Multilingual 322M |
-|---|---:|---:|
-| 单个短问题 P50 | **13.42 ms** | **7.39 ms** |
-| 单个短问题 P95 | **13.92 ms** | **7.79 ms** |
-| 50 问题吞吐量 | **146.8 q/s** | **395.0 q/s** |
-| 单个短问题 MLX 峰值分配 | **943.6 MiB** | **687.6 MiB** |
+## 与板端验证输出的一致性
 
-硬件为 M3 Max（40 核 GPU、128 GiB 内存）。计时包含提示准备、tokenization、张量构建、GPU 同步推理、校准及结果格式化，排除模型加载。50 问题吞吐量使用 `batch_size=64`，公开 API 默认为 16。
-
-**移植一致性：**三个检查点在 FP32 和 FP16 下均通过 **63/63** 验证问题的上游 argmax 对齐，合计 378/378；每个配置各执行 100 次重复调用，结果有限、确定，测得活跃内存增长为零。它验证移植保真度，不代表所有实际问题都能答对。[完整误差和原始记录](BENCHMARKS.md)。
-
-`choice` 返回分类概率，`score` 返回有序评分，`noul` 返回 P(true)。每个问题作为独立行经过双向编码器；不宣称任意问题可以复用同一份 state hidden states。本项目是独立 MLX 移植，并非 Convai Innovations 官方发布。
-
-## 支持的检查点
-
-| 检查点 | 编码器 | 参数量 | 最大上下文 |
-|---|---|---:|---:|
-| `convaiinnovations/laya` | ModernBERT-large | 421M | 512 |
-| `convaiinnovations/laya-multilingual` | mmBERT-base | 322M | 1,024 |
-| `convaiinnovations/laya-typed-decisions` | ModernBERT-large | 421M | 1,024 |
-
-上下文预算包含问题、选项和输入状态。中文等非英语输入应使用 multilingual 检查点。本项目实现推理与权重转换；RLCD 训练和微调继续使用上游项目。
-
-已转换的 FP16 MLX 权重发布在 Hugging Face，可直接传给 `laya.load(...)`：
-
-- [aac6fef/laya-mlx](https://huggingface.co/aac6fef/laya-mlx)
-- [aac6fef/laya-multilingual-mlx](https://huggingface.co/aac6fef/laya-multilingual-mlx)
-- [aac6fef/laya-typed-decisions-mlx](https://huggingface.co/aac6fef/laya-typed-decisions-mlx)
-
-例如：`laya.load("aac6fef/laya-multilingual-mlx")`。每个模型仓库都包含模型卡、测试结果、来源、许可证和文件校验清单。三个仓库共 36 个文件均已通过严格远端校验；固定版本与权重哈希见 [hub-publication.json](benchmarks/results/hub-publication.json)。
-
-## 安装与运行
-
-需要 Apple silicon Mac、macOS 14+ 和 Python 3.11+。本机实测环境为 M3 Max（40 核 GPU、128 GB 内存）、macOS 27.2、Python 3.12.13、MLX 0.32.2。MLX 0.32.2 提供 macOS 14 / 15 / 26 的 wheel，本机选择了 26 构建；未在这台机器上实测旧系统。
+三个 checkpoint 均复现了模型包内 `axllm` 在 AX650 板上录制的 `sample_output.json`：
+选中标签完全一致，概率对齐到小数点后 4 位（如 multilingual：billing 1.0000、
+urgency 1.9359、refund 0.9925、churn 0.9400）。
 
 ```bash
-gh repo clone mizorewww/laya-mlx
-cd laya-mlx
-uv sync
-uv run python examples/quickstart.py
+pytest tests/test_common.py                                   # 无需硬件
+LAYA_AXERA_MODEL_DIR=models/Laya/multilingual pytest tests/   # 在 NPU 上
 ```
 
-或从 GitHub 直接安装：
+## 图约束
 
-```bash
-python -m pip install 'git+https://github.com/mizorewww/laya-mlx.git'
-```
+AXModel 为固定形状：batch 1、256 token、至多 4 个选项、每个问题一次 NPU 前向。
+量化可能使概率发生偏移；在自动化高影响动作前，请用有代表性的数据校准阈值。
 
-Python 示例：
+## 致谢与许可
 
-```python
-import laya_mlx as laya
-
-agent = laya.load("aac6fef/laya-multilingual-mlx")
-result = agent.predict(
-    "发票被重复扣款，请今天退款。",
-    {
-        "department": {
-            "type": "choice",
-            "instructions": "Which department should handle this request?",
-            "criteria": ["billing", "technical", "sales"],
-        },
-        "refund": {
-            "type": "noul",
-            "instructions": "Does the customer ask for money back?",
-        },
-    },
-)
-print(result["answers"])
-```
-
-默认使用 FP16。需要更接近原版 FP32 的数值时使用 `dtype="float32"`。`batch_size=16` 控制每次计算的问题数，更多问题会分批处理。概率按原版格式保留四位小数；不同精度可能造成小幅差异，实测误差见 benchmark 报告。
-
-命令行支持文本或 JSON 状态：
-
-```bash
-uv run laya-mlx predict \
-  --model aac6fef/laya-multilingual-mlx \
-  --state '发票被重复扣款，请退款。' \
-  --questions examples/questions.json
-```
-
-本仓库已下载的权重位于 `models/` 时，将 `--model` 改成相应本地目录即可避免再次下载。
-
-## 转换权重
-
-```bash
-uv run laya-mlx convert \
-  --model convaiinnovations/laya \
-  --dtype float16 \
-  --output models/laya-mlx-fp16
-```
-
-转换后可以通过 `laya.load("./models/laya-mlx-fp16")` 直接加载。输出目录包含模型、配置、tokenizer 和来源元数据。已有目录不会被覆盖，模型权重不会提交到 GitHub。
-
-原始检查点本身存储的是 FP16 权重；这里的转换调整参数命名与计算精度，不涉及重新训练或低比特量化。
-
-## 路由、测试和 benchmark
-
-`Router`、`triage_questions`、`email_questions`、`guard_questions`、`moderation_questions` 等接口保留上游用法，将导入名改为 `laya_mlx` 即可。typed-decisions 检查点可通过 `task="typed_decisions"` 显式指定；`Router(preload=True)` 可预加载三个模型。
-
-详细的 API、测试和复现命令见 [英文 README](README.md)。[BENCHMARKS.md](BENCHMARKS.md) 包含本机 PyTorch MPS FP32、MLX FP32 与 MLX FP16 的端到端 P50/P95、吞吐量、内存、数值一致性、重复运行和固定抽样分类测试。所有原始测量数据位于 [benchmarks/results](benchmarks/results)，GPU 测试应串行运行。
-
-[初步性能研究](docs/PERFORMANCE_RESEARCH.md) 分析实现、基准和 MLX 源码。针对“能否再快一个数量级”，另有两份深入报告：
-
-- [数学分析](docs/MATH_10X_RESEARCH.md)：计算预算、带宽条件下界、真实权重谱、精确复用，以及蒸馏学生模型的设计空间。
-- [工程实测](docs/ENGINEERING_10X_RESEARCH.md)：编译、量化、最后一层输出裁剪、自定义 Metal 核与矩阵乘法实验。
-
-[experiments/](experiments) 保存研究脚本和原始数据。发布版本的结果见 [BENCHMARKS.md](BENCHMARKS.md)，各实验变体的耗时与数值一致性单独记录。
-
-目前证据不支持相同检查点下普遍再快 10 倍。部分场景的逐轮配对中位加速约为 1.03–1.08 倍；误差区间、量化保真结果和自定义 Metal 核的实测详见工程报告。
-
-这是独立的 MLX 移植，模型能力及其限制来自上游；模型输出概率不等于答案必然正确。采用 Apache-2.0，原作者与移植说明见 [NOTICE](NOTICE)。
+Apache-2.0，见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。提示构造、校准、输出 schema 与
+贪吃蛇演示改编自 [laya-mlx](https://github.com/mizorewww/laya-mlx) 及上游
+[Laya](https://github.com/NandhaKishorM/laya)（Convai Innovations）。AXModel、tokenizer
+与 PyAXEngine 参考脚本来自 [AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Laya)
+部署包。模型权重需单独下载，不包含在本仓库中。

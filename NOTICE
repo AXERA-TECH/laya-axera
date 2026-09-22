@@ -1,14 +1,20 @@
-laya-mlx
-Copyright 2026 laya-mlx contributors
+laya-axera
+Copyright 2026 laya-axera contributors
 
 This product includes software derived from Laya:
 https://github.com/NandhaKishorM/laya
 Copyright Convai Innovations and Laya contributors. Licensed under Apache-2.0.
-Upstream source revision: 6a5819129eb220570792e417e49723d697efd76f
 
+This product includes software derived from laya-mlx:
+https://github.com/mizorewww/laya-mlx
+Copyright laya-mlx contributors. Licensed under Apache-2.0.
 The token sequence construction, question rendering, confidence calculation,
-presets, email utilities and language router are adapted from Laya.
-The neural network is reimplemented using Apple's MLX, following Laya's
-DecisionModel and the ModernBERT architecture in Hugging Face Transformers.
-Model weights are downloaded separately from Convai Innovations on Hugging Face;
-they are not included in this repository.
+tokenizer wrapper, and the Snake game rules, cycle safety planner and decision
+policy are adapted from laya-mlx.
+
+Inference runs through PyAXEngine (https://github.com/AXERA-TECH/pyaxengine),
+following the reference infer.py published in the AXERA-TECH/Laya deployment
+package (https://huggingface.co/AXERA-TECH/Laya, Apache-2.0).
+
+Model weights are downloaded separately from the AXERA-TECH/Laya package on
+Hugging Face; they are not included in this repository.
