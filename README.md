@@ -58,6 +58,11 @@ hf download AXERA-TECH/Laya --local-dir models/Laya
 | `multilingual/` | mmBERT-base | ~28 ms on-chip, ~31 ms AXCL | Chinese and other languages |
 | `typed-decisions/` | ModernBERT-large | ~70 ms on-chip, ~74 ms AXCL | Invoice, security, agent-trace workflows |
 
+Latencies measured with `python examples/bench.py <checkpoint>`: on-chip on an AX650 dev
+board (multilingual 28.8 ms, english 71.1 ms, PyAXEngine, models NFS-mounted), AXCL on an
+idle x86 host card. The Snake demo asks three questions per move, so one move costs about
+three question latencies.
+
 ## Python API
 
 ```python

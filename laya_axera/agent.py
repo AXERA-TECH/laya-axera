@@ -124,10 +124,11 @@ class Agent:
         return feed, q, len(ids)
 
     def _forward(self, feed):
-        started = time.perf_counter()
+        # Timed inside the lock: queueing behind concurrent callers is not NPU time.
         with self._lock:
+            started = time.perf_counter()
             logits, act_logits = self._session.run(None, feed)
-        latency_ms = (time.perf_counter() - started) * 1000.0
+            latency_ms = (time.perf_counter() - started) * 1000.0
         return np.asarray(logits), np.asarray(act_logits), latency_ms
 
     def system_one(self, state, questions):

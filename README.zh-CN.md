@@ -56,6 +56,10 @@ hf download AXERA-TECH/Laya --local-dir models/Laya
 | `multilingual/` | mmBERT-base | 片上约 28 ms，AXCL 约 31 ms | 中文及多语言输入 |
 | `typed-decisions/` | ModernBERT-large | 片上约 70 ms，AXCL 约 74 ms | 发票、安全、Agent 轨迹 |
 
+延迟用 `python examples/bench.py <checkpoint>` 实测：片上为 AX650 开发板
+（multilingual 28.8 ms、english 71.1 ms，PyAXEngine，模型经 NFS 挂载），AXCL 为空闲
+x86 主机卡。贪吃蛇每步问 3 个问题，单步耗时约为 3 倍单问题延迟。
+
 ## Python API
 
 ```python
