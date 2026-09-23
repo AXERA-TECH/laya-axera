@@ -17,6 +17,8 @@
   --blue: #2a78d6;
   --blue-soft: rgba(42, 120, 214, 0.16);
   --orange: #eb6834;
+  --wing-back: #9c3d17;
+  --wing-front: #f2b25e;
   --aqua: #1baf7a;
   --good: #006300;
   --critical: #d03b3b;
@@ -35,6 +37,8 @@
     --blue: #3987e5;
     --blue-soft: rgba(57, 135, 229, 0.22);
     --orange: #d95926;
+    --wing-back: #8f3714;
+    --wing-front: #e9a54b;
     --aqua: #199e70;
     --good: #0ca30c;
     --critical: #d03b3b;
@@ -53,6 +57,8 @@
   --blue: #3987e5;
   --blue-soft: rgba(57, 135, 229, 0.22);
   --orange: #d95926;
+  --wing-back: #8f3714;
+  --wing-front: #e9a54b;
   --aqua: #199e70;
   --good: #0ca30c;
   --critical: #d03b3b;
@@ -763,6 +769,7 @@ function snakeToggle() {
 /* ---------- flappy view ---------- */
 
 const FDIR_LABEL = { up: "↑ 拍翅", down: "↓ 滑翔" };
+let wingPhase = 0;
 
 function initFlappyRows() {
   const box = $("f-rows");
@@ -788,7 +795,10 @@ function updateFlappyPanel(decision) {
     row.querySelector(".opt").textContent =
       (decision && decision.executed === d ? "✓ " : "") + FDIR_LABEL[d];
   }
-  if (decision) pressFx("f-" + decision.executed);
+  if (decision) {
+    pressFx("f-" + decision.executed);
+    state._flappyFlapping = decision.executed === "up";
+  }
   const note = $("f-note");
   if (!decision) {
     note.textContent = "模型在「up 拍翅」和「down 滑翔」之间选择，护栏只纠正致命提议。";
@@ -827,10 +837,22 @@ function drawFlappy(snap, frame) {
     ctx.beginPath(); ctx.roundRect(x, botY, pw, canvas.height - botY + 8, 4); ctx.fill();
   }
   const bx = snap.bird_x * cw, by = birdY * ch, br = snap.bird_r * cw * 1.35;
+  // The wing beats fast on a flap step and idles while gliding; raised shows its
+  // back, lowered shows its underside, so the two faces read as different colors.
+  wingPhase += state._flappyFlapping ? 0.62 : 0.17;
+  const beat = Math.sin(wingPhase);
   ctx.fillStyle = css.getPropertyValue("--orange").trim();
   ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(bx - br * 0.22, by - beat * br * 0.42);
+  ctx.rotate(-beat * 0.38);
+  ctx.fillStyle = css.getPropertyValue(beat >= 0 ? "--wing-back" : "--wing-front").trim();
+  ctx.beginPath();
+  ctx.ellipse(-br * 0.2, 0, br * 0.78, Math.max(br * 0.14, br * 0.46 * Math.abs(beat)), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
   ctx.fillStyle = css.getPropertyValue("--board").trim();
-  ctx.beginPath(); ctx.arc(bx + br * 0.38, by - br * 0.3, br * 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(bx + br * 0.38, by - br * 0.34, br * 0.19, 0, Math.PI * 2); ctx.fill();
 }
 
 function updateFlappyStats(snap, stats, decision) {
