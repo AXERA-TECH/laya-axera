@@ -831,8 +831,9 @@ function drawFlappy(snap, frame) {
   const pw = snap.pipe_w * cw;
   for (const p of snap.pipes) {
     const x = (p.x + shift) * cw - pw / 2;
-    const topH = (p.gap_y - snap.gap / 2) * ch;
-    const botY = (p.gap_y + snap.gap / 2) * ch;
+    const g = p.gap != null ? p.gap : snap.gap;
+    const topH = (p.gap_y - g / 2) * ch;
+    const botY = (p.gap_y + g / 2) * ch;
     ctx.beginPath(); ctx.roundRect(x, -8, pw, topH + 8, 4); ctx.fill();
     ctx.beginPath(); ctx.roundRect(x, botY, pw, canvas.height - botY + 8, 4); ctx.fill();
   }

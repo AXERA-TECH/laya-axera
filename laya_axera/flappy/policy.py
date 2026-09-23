@@ -51,8 +51,8 @@ class LayaFlappyPolicy:
                 "type": "choice",
                 "instructions": "Choose the best safe action.",
                 "criteria": {
-                    "up": self._describe(plan["safe_flap"], plan["offset"] > 0.35),
-                    "down": self._describe(plan["safe_hold"], plan["offset"] <= 0.35),
+                    "up": self._describe(plan["safe_flap"], plan["offset"] > plan["deadband"]),
+                    "down": self._describe(plan["safe_hold"], plan["offset"] <= plan["deadband"]),
                 },
             }
         }

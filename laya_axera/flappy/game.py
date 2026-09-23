@@ -21,11 +21,16 @@ PIPE_W = 1.6
 
 
 class FlappyGame:
-    def __init__(self, width=24, height=16, seed=7, gap=4.4, spacing=9.0):
-        if not 3.0 <= gap <= height - 4:
-            raise ValueError("gap must leave room for pipes")
+    def __init__(self, width=24, height=16, seed=7, gap=(3.8, 6.0), spacing=9.0):
+        # `gap` is the per-pipe corridor height: a (min, max) range drawn per pipe,
+        # or a single number for a fixed corridor.
+        gap_min, gap_max = (gap, gap) if isinstance(gap, (int, float)) else gap
+        if not 3.0 <= gap_min <= gap_max <= height - 4:
+            raise ValueError("gap range must leave room for pipes")
         self.width, self.height = width, height
-        self.gap, self.spacing = float(gap), float(spacing)
+        self.gap_min, self.gap_max = float(gap_min), float(gap_max)
+        self.gap = (self.gap_min + self.gap_max) / 2
+        self.spacing = float(spacing)
         self.seed = seed
         self.rng = random.Random(seed)
         self.y = height / 2.0
@@ -41,9 +46,11 @@ class FlappyGame:
         self.death_reason = None
 
     def _new_pipe(self, x):
-        margin = self.gap / 2 + 1.2
+        gap = self.rng.uniform(self.gap_min, self.gap_max)
+        margin = gap / 2 + 1.2
         return {
             "x": x,
+            "gap": gap,
             "gap_y": self.rng.uniform(margin, self.height - margin),
             "passed": False,
         }
@@ -68,7 +75,7 @@ class FlappyGame:
                 pipe["passed"] = True
                 self.score += 1
             if abs(pipe["x"] - BIRD_X) < PIPE_W / 2 + BIRD_R:
-                half = self.gap / 2
+                half = pipe["gap"] / 2
                 if self.y - BIRD_R < pipe["gap_y"] - half or self.y + BIRD_R > pipe["gap_y"] + half:
                     self.alive, self.death_reason = False, "pipe"
                     return
@@ -103,6 +110,7 @@ class FlappyGame:
         twin = object.__new__(FlappyGame)
         twin.width, twin.height = self.width, self.height
         twin.gap, twin.spacing = self.gap, self.spacing
+        twin.gap_min, twin.gap_max = self.gap_min, self.gap_max
         twin.seed, twin.rng = self.seed, random.Random(0)  # spawns beyond the horizon
         twin.y, twin.vy = self.y, self.vy
         twin.pipes = [dict(p) for p in self.pipes]
@@ -123,12 +131,16 @@ class FlappyGame:
         offset = self.y - pipe["gap_y"]  # positive = bird below the gap center
         distance = pipe["x"] - BIRD_X
         safe_flap, safe_hold = self.safe(True), self.safe(False)
+        # Aim-at-center dead band, proportional to this pipe's corridor height.
+        deadband = 0.08 * pipe["gap"]
         if safe_flap != safe_hold:
             autopilot = "up" if safe_flap else "down"
         else:
-            autopilot = "up" if offset > 0.35 else "down"
+            autopilot = "up" if offset > deadband else "down"
         return {
             "offset": offset,
+            "gap": pipe["gap"],
+            "deadband": deadband,
             "distance": distance,
             "rising": self.vy < 0,
             "safe_flap": safe_flap,
@@ -148,7 +160,7 @@ class FlappyGame:
             "pipe_w": PIPE_W,
             "gap": self.gap,
             "pipes": [
-                {"x": round(p["x"], 3), "gap_y": round(p["gap_y"], 3)}
+                {"x": round(p["x"], 3), "gap_y": round(p["gap_y"], 3), "gap": round(p["gap"], 3)}
                 for p in self.pipes
                 if p["x"] < self.width + 2
             ],
