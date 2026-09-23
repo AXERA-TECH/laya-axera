@@ -107,6 +107,8 @@ laya-axera serve --root models/Laya --port 8010
 
 - **决策台** —— 编辑 state 和 questions，提交到 NPU，以概率条形式查看答案与逐问题延迟；
   一键载入所选 checkpoint 的板端验证示例。
+- **打方块** —— 规划器预测球在挡板行的落点，描述左移/右移/不动三个动作的后果，模型每步三选一，
+  单问题约 30ms。探测显示三选一在各轮换下均正确（最佳项 0.62-0.78），实测 400 步与规划器 400/400 一致。
 - **Flappy Bird** —— 每步一个二选一决策（拍翅/滑翔），单问题约 30ms：规划器描述两个动作的后果，模型选择，护栏只纠正致命提议。
 - **俄罗斯方块** —— 启发式筛出 4 个候选落点，模型用 noul 对每个独立评分（统一模板中文陈述，
   探测表明该域下 choice 排序受标签偏置干扰），取 P(好落点) 最高者。每块 4 次推理约 126ms。
@@ -116,7 +118,8 @@ laya-axera serve --root models/Laya --port 8010
   multilingual + 单张 AXCL AX8850 约 10 步/秒。
 
 接口：`GET /api/info`、`GET /api/samples/{name}`、`POST /api/predict`、
-`POST /api/snake/new`、`POST /api/snake/step`。
+`POST /api/snake/new`、`POST /api/snake/step`，以及 flappy / tetris / breakout 的
+`new` 与 `step`（俄罗斯方块另有手动模式的 `POST /api/tetris/place`）。
 
 ## 与板端验证输出的一致性
 

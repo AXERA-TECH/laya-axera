@@ -158,6 +158,9 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
   font-size: 13.5px; font-variant-numeric: tabular-nums;
 }
 
+/* ---- breakout view ---- */
+#bboard { width: 100%; display: block; background: var(--board); border: 1px solid var(--border); border-radius: 6px; }
+
 /* ---- tetris view ---- */
 #tboard { width: 310px; max-width: 100%; margin: 0 auto; display: block; background: var(--board); border: 1px solid var(--border); border-radius: 6px; }
 .t-cand { display: grid; grid-template-columns: 162px 1fr 52px; gap: 10px; align-items: center; padding: 4px 0; }
@@ -233,6 +236,7 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
     <button id="nav-snake">贪吃蛇</button>
     <button id="nav-flappy">Flappy Bird</button>
     <button id="nav-tetris">俄罗斯方块</button>
+    <button id="nav-breakout">打方块</button>
   </nav>
   <div id="engine">连接中…</div>
   <button id="theme-toggle" class="theme-btn" aria-label="切换深浅色主题" title="切换深浅色主题">☾</button>
@@ -380,6 +384,48 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="t-s-mps">–<small> 块/s</small></div></div>
         </div>
         <div class="error" id="tetris-error" hidden></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="view-breakout" hidden>
+    <div class="snake-grid">
+      <div class="board-wrap">
+        <canvas id="bboard" width="960" height="672" aria-label="打方块棋盘，挡板每一步的移动由 Laya 在 NPU 上实时决策"></canvas>
+        <div class="overlay" id="b-overlay">
+          <div id="b-overlay-title">挡板的每一步，都是一次 NPU 决策</div>
+          <small id="b-overlay-sub">规则引擎预测落点并描述三个动作的后果，模型三选一，单问题约 30ms。</small>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="controls">
+          <button class="btn primary" id="breakout-new">新开一局</button>
+          <button class="btn" id="breakout-toggle" disabled>暂停</button>
+          <label>速度
+            <input type="range" id="b-speed" min="1" max="11" value="7" aria-label="每秒决策数，最右为不限速">
+          </label>
+          <label><input type="checkbox" id="b-guarded" checked> 安全护栏</label>
+        </div>
+        <div class="dpad" id="b-dpad">
+          <button class="btn" id="b-left" aria-label="左移" disabled>◀</button>
+          <button class="btn" id="b-hold" aria-label="不动" disabled>■</button>
+          <button class="btn" id="b-right" aria-label="右移" disabled>▶</button>
+        </div>
+        <div class="dir-rows" id="b-rows"></div>
+        <div class="decision-note" id="b-note">模型在「左移 / 右移 / 不动」之间选择，护栏只在必接不到时纠正。</div>
+        <div class="gauges">
+          <div class="gauge"><div class="glabel">落点误差 paddle error</div><div class="track"><div class="fill" id="b-g-err"></div></div><div class="gval" id="b-g-err-v">–</div></div>
+          <div class="gauge"><div class="glabel">剩余砖块 bricks left</div><div class="track"><div class="fill" id="b-g-brick"></div></div><div class="gval" id="b-g-brick-v">–</div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="slabel">得分</div><div class="sval" id="b-s-score">0</div></div>
+          <div class="stat"><div class="slabel">决策数</div><div class="sval" id="b-s-steps">0</div></div>
+          <div class="stat"><div class="slabel">生命</div><div class="sval" id="b-s-lives">3</div></div>
+          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="b-s-int">0</div></div>
+          <div class="stat"><div class="slabel">单步推理</div><div class="sval" id="b-s-inf">–<small> ms</small></div></div>
+          <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="b-s-sps">–<small> 步/s</small></div></div>
+        </div>
+        <div class="error" id="breakout-error" hidden></div>
       </aside>
     </div>
   </section>
@@ -851,6 +897,172 @@ function flappyToggle() {
   f.playing = !f.playing;
   $("flappy-toggle").textContent = f.playing ? "暂停" : "继续";
   if (f.playing) flappyLoop(f.gen);
+}
+
+/* ---------- breakout view ---------- */
+
+const B_ACTS = ["left", "hold", "right"];
+const B_LABEL = { left: "◀ 左移", hold: "■ 不动", right: "▶ 右移" };
+const B_BTN = { left: "b-left", hold: "b-hold", right: "b-right" };
+
+function initBreakoutRows() {
+  const box = $("b-rows");
+  box.innerHTML = "";
+  for (const a of B_ACTS) {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.id = "bact-" + a;
+    row.innerHTML = `<span class="opt">${B_LABEL[a]}</span>
+      <span class="track"><span class="fill"></span></span>
+      <span class="val">–</span>`;
+    box.appendChild(row);
+  }
+}
+
+function updateBreakoutPanel(decision, snap) {
+  for (const a of B_ACTS) {
+    const row = $("bact-" + a);
+    const p = decision ? decision.probabilities[a] : 0;
+    row.classList.toggle("chosen", !!decision && decision.executed === a);
+    row.querySelector(".fill").style.width = (p * 100).toFixed(2) + "%";
+    row.querySelector(".val").textContent = decision ? pct(p) : "–";
+    row.querySelector(".opt").textContent =
+      (decision && decision.executed === a ? "✓ " : "") + B_LABEL[a];
+  }
+  const note = $("b-note");
+  if (!decision) {
+    note.textContent = "模型在「左移 / 右移 / 不动」之间选择，护栏只在必接不到时纠正。";
+  } else if (decision.intervened) {
+    note.innerHTML = `<span class="flag">护栏干预</span>：模型提议 ${B_LABEL[decision.proposed]}（会漏球），改为 ${B_LABEL[decision.executed]}`;
+  } else {
+    note.textContent = `模型选择 ${B_LABEL[decision.executed]}，与规划器${decision.executed === decision.planner_best ? "一致" : "不同但安全"}。`;
+  }
+  if (decision) {
+    pressFx(B_BTN[decision.executed]);
+    $("b-g-err").style.width = Math.min(100, (decision.error / 6) * 100).toFixed(1) + "%";
+    $("b-g-err-v").textContent = decision.error.toFixed(2) + " 格";
+  }
+  if (snap) {
+    $("b-g-brick").style.width = ((snap.bricks_left / 40) * 100).toFixed(1) + "%";
+    $("b-g-brick-v").textContent = snap.bricks_left + " / 40";
+  }
+}
+
+function drawBreakout(snap, target) {
+  state._breakoutSnap = snap;
+  state._breakoutTarget = target;
+  const canvas = $("bboard");
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
+  const css = getComputedStyle(document.documentElement);
+  const colors = T_COLORS[effectiveTheme()];
+  ctx.fillStyle = css.getPropertyValue("--board").trim();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (const [r, c] of snap.bricks) {
+    ctx.fillStyle = colors[(r - 2) % colors.length];
+    ctx.beginPath();
+    ctx.roundRect(c * snap.brick_w * cw + 2, r * ch + 2, snap.brick_w * cw - 4, ch - 4, 3);
+    ctx.fill();
+  }
+  if (target != null) {
+    ctx.strokeStyle = css.getPropertyValue("--ink-3").trim();
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(target * cw, snap.paddle_y * ch - ch * 1.6);
+    ctx.lineTo(target * cw, snap.paddle_y * ch + ch * 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.fillStyle = css.getPropertyValue("--blue").trim();
+  ctx.beginPath();
+  ctx.roundRect((snap.paddle_x - snap.paddle_w / 2) * cw, snap.paddle_y * ch, snap.paddle_w * cw, ch * 0.45, 4);
+  ctx.fill();
+  ctx.fillStyle = css.getPropertyValue("--orange").trim();
+  ctx.beginPath();
+  ctx.arc(snap.ball[0] * cw, snap.ball[1] * ch, snap.ball_r * cw * 1.25, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function updateBreakoutStats(snap, stats, decision) {
+  $("b-s-score").textContent = snap.score;
+  $("b-s-steps").textContent = stats ? stats.steps : 0;
+  $("b-s-lives").textContent = snap.lives;
+  $("b-s-int").textContent = stats ? stats.interventions : 0;
+  if (decision) $("b-s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
+  const b = state.breakout;
+  if (b && b.lastTick) {
+    const dt = (performance.now() - b.lastTick) / 1000;
+    if (dt > 0) $("b-s-sps").innerHTML = (1 / dt).toFixed(1) + "<small> 步/s</small>";
+  }
+}
+
+async function breakoutNew() {
+  hide("breakout-error");
+  $("breakout-new").disabled = true;
+  $("breakout-new").textContent = "加载中…";
+  try {
+    const data = await api("/api/breakout/new", {
+      model: state.current,
+      guarded: $("b-guarded").checked,
+    });
+    state.breakout = { session: data.session, playing: true, gen: (state.breakout ? state.breakout.gen : 0) + 1, lastTick: 0 };
+    $("b-overlay").hidden = true;
+    $("breakout-toggle").disabled = false;
+    $("breakout-toggle").textContent = "暂停";
+    initBreakoutRows();
+    updateBreakoutPanel(null, data.state);
+    drawBreakout(data.state, null);
+    updateBreakoutStats(data.state, null, null);
+    refreshInfo(true);
+    breakoutLoop(state.breakout.gen);
+  } catch (err) {
+    showError("breakout-error", err.message);
+  } finally {
+    $("breakout-new").disabled = false;
+    $("breakout-new").textContent = "新开一局";
+  }
+}
+
+async function breakoutLoop(gen) {
+  const b = state.breakout;
+  if (!b || b.gen !== gen || !b.playing) return;
+  const speed = Number($("b-speed").value);
+  const target = speed >= 11 ? 0 : 1000 / speed;
+  const t0 = performance.now();
+  let data;
+  try {
+    data = await api("/api/breakout/step", { session: b.session });
+  } catch (err) {
+    showError("breakout-error", err.message);
+    b.playing = false;
+    $("breakout-toggle").disabled = true;
+    return;
+  }
+  if (!state.breakout || state.breakout.gen !== gen) return;
+  if (data.decision) updateBreakoutPanel(data.decision, data.state);
+  drawBreakout(data.state, data.decision ? data.decision.target : null);
+  updateBreakoutStats(data.state, data.stats, data.decision);
+  b.lastTick = t0;
+  if (data.done) {
+    b.playing = false;
+    $("breakout-toggle").disabled = true;
+    const won = data.state.won;
+    $("b-overlay-title").textContent = won ? "全部砖块清空，胜利" : "本局结束：球漏掉了";
+    $("b-overlay-sub").textContent = `得分 ${data.state.score}，共 ${data.state.steps} 次决策。`;
+    $("b-overlay").hidden = false;
+    return;
+  }
+  const elapsed = performance.now() - t0;
+  setTimeout(() => breakoutLoop(gen), Math.max(0, target - elapsed));
+}
+
+function breakoutToggle() {
+  const b = state.breakout;
+  if (!b) return;
+  b.playing = !b.playing;
+  $("breakout-toggle").textContent = b.playing ? "暂停" : "继续";
+  if (b.playing) breakoutLoop(b.gen);
 }
 
 /* ---------- tetris view ---------- */
@@ -1443,7 +1655,7 @@ function showError(id, msg) { const el = $(id); el.textContent = msg; el.hidden 
 function hide(id) { $(id).hidden = true; }
 
 function switchView(name) {
-  for (const v of ["decide", "snake", "flappy", "tetris"]) {
+  for (const v of ["decide", "snake", "flappy", "tetris", "breakout"]) {
     $("view-" + v).hidden = name !== v;
     $("nav-" + v).classList.toggle("active", name === v);
   }
@@ -1461,6 +1673,7 @@ function applyTheme(t) {
   if (state._snakeSnap) drawBoard(state._snakeSnap);
   if (state._flappySnap) drawFlappy(state._flappySnap);
   if (state._tetrisSnap) drawTetris(state._tetrisSnap, state._tetrisPlaced);
+  if (state._breakoutSnap) drawBreakout(state._breakoutSnap, state._breakoutTarget);
 }
 $("theme-toggle").onclick = () => {
   const next = effectiveTheme() === "dark" ? "light" : "dark";
@@ -1476,6 +1689,7 @@ $("nav-decide").onclick = () => switchView("decide");
 $("nav-snake").onclick = () => switchView("snake");
 $("nav-flappy").onclick = () => switchView("flappy");
 $("nav-tetris").onclick = () => switchView("tetris");
+$("nav-breakout").onclick = () => switchView("breakout");
 $("run").onclick = runPredict;
 $("load-sample").onclick = loadSample;
 $("snake-new").onclick = snakeNew;
@@ -1490,9 +1704,12 @@ $("t-left").onclick = () => manualTry(man.rot, man.col - 1);
 $("t-right").onclick = () => manualTry(man.rot, man.col + 1);
 $("t-rotate").onclick = manualRotate;
 $("t-drop").onclick = manualLock;
+$("breakout-new").onclick = breakoutNew;
+$("breakout-toggle").onclick = breakoutToggle;
 
 initDirRows();
 initFlappyRows();
+initBreakoutRows();
 (async () => { await refreshInfo(); if (state.current) loadSample(); })();
 setInterval(() => refreshInfo(true), 15000);
 </script>

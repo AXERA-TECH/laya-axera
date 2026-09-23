@@ -117,6 +117,10 @@ laya-axera serve --root models/Laya --port 8010
 - **决策台 / Decisions** — edit state + questions, run them on the NPU, read the answers as
   probability bars with per-question latency. One click loads the board-validated sample
   request of the selected checkpoint.
+- **打方块 / Breakout** — the planner predicts where the ball will cross the paddle row
+  and describes left / right / hold; the model picks one per step, ~30 ms. Probed over
+  every rotation of which action is best, the three-way choice lands on the intended
+  action at 0.62-0.78, and in playtests it tracked the planner on 400/400 steps.
 - **Flappy Bird** — one binary decision per step (flap or glide), one NPU question at
   ~30 ms: the planner describes each action's consequence, the model picks, and the
   optional shield corrects only fatal proposals.
@@ -137,6 +141,9 @@ laya-axera serve --root models/Laya --port 8010
 | `POST /api/predict` | `{model?, state, questions}` → answers |
 | `POST /api/snake/new` | `{model?, seed?, guarded?, prompt?}` → session |
 | `POST /api/snake/step` | `{session}` → one Laya-decided move |
+| `POST /api/{flappy,tetris,breakout}/new` | `{model?, seed?, guarded?}` → session |
+| `POST /api/{flappy,tetris,breakout}/step` | `{session}` → one Laya-decided move |
+| `POST /api/tetris/place` | `{session, rotation, col}` → your move, rated against the model's |
 
 ## Parity with the board-validated outputs
 

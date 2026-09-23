@@ -14,6 +14,8 @@ from pydantic import BaseModel
 
 from . import __version__
 from .agent import Agent
+from .breakout.game import BreakoutGame
+from .breakout.policy import LayaBreakoutPolicy
 from .flappy.game import FlappyGame
 from .flappy.policy import LayaFlappyPolicy
 from .snake.game import SnakeGame
@@ -335,6 +337,51 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive,
+        }
+
+    breakout_sessions: Dict[str, Dict[str, Any]] = {}
+
+    @app.post("/api/breakout/new")
+    def breakout_new(body: FlappyNewBody):
+        agent = registry.get(body.model)
+        seed = body.seed if body.seed is not None else int(time.time() * 1000) % 100000
+        game = BreakoutGame(seed=seed)
+        policy = LayaBreakoutPolicy(agent, guarded=body.guarded)
+        sid = uuid.uuid4().hex[:12]
+        with sessions_lock:
+            while len(breakout_sessions) >= MAX_SNAKE_SESSIONS:
+                oldest = min(breakout_sessions, key=lambda s: breakout_sessions[s]["created"])
+                del breakout_sessions[oldest]
+            breakout_sessions[sid] = {
+                "game": game,
+                "policy": policy,
+                "created": time.time(),
+                "stats": {"steps": 0, "interventions": 0, "inference_ms_total": 0.0},
+            }
+        return {"session": sid, "seed": seed, "state": game.snapshot()}
+
+    @app.post("/api/breakout/step")
+    def breakout_step(body: SnakeStepBody):
+        with sessions_lock:
+            entry = breakout_sessions.get(body.session)
+        if entry is None:
+            raise HTTPException(404, "Unknown or expired breakout session")
+        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+        if not game.alive or game.won:
+            return {"state": game.snapshot(), "stats": stats, "done": True}
+        try:
+            decision = policy.decide(game)
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(500, str(exc))
+        game.step(decision.executed)
+        stats["steps"] += 1
+        stats["interventions"] += int(decision.intervened)
+        stats["inference_ms_total"] += decision.inference_ms
+        return {
+            "decision": decision.to_dict(),
+            "state": game.snapshot(),
+            "stats": stats,
+            "done": not game.alive or game.won,
         }
 
     if WEB_DIR.is_dir():
