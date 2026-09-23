@@ -288,6 +288,12 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
             </select>
           </label>
         </div>
+        <div class="dpad" id="s-dpad">
+          <button class="btn" id="s-left" aria-label="左" disabled>←</button>
+          <button class="btn" id="s-up" aria-label="上" disabled>↑</button>
+          <button class="btn" id="s-down" aria-label="下" disabled>↓</button>
+          <button class="btn" id="s-right" aria-label="右" disabled>→</button>
+        </div>
         <div class="dir-rows" id="dir-rows"></div>
         <div class="decision-note" id="decision-note">模型对四个方向给出概率，护栏只在提议不安全时纠正。</div>
         <div class="gauges">
@@ -324,6 +330,10 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
             <input type="range" id="f-speed" min="1" max="11" value="8" aria-label="每秒决策数，最右为不限速">
           </label>
           <label><input type="checkbox" id="f-guarded" checked> 安全护栏</label>
+        </div>
+        <div class="dpad" id="f-dpad">
+          <button class="btn" id="f-up" aria-label="拍翅" disabled>A 拍翅</button>
+          <button class="btn" id="f-down" aria-label="滑翔" disabled>■ 滑翔</button>
         </div>
         <div class="dir-rows" id="f-rows"></div>
         <div class="decision-note" id="f-note">模型在「up 拍翅」和「down 滑翔」之间选择，护栏只纠正致命提议。</div>
@@ -614,6 +624,7 @@ function updateDirRows(decision) {
     const opt = row.querySelector(".opt");
     opt.textContent = (decision && decision.executed === d ? "✓ " : "") + DIR_LABEL[d];
   }
+  if (decision) pressFx("s-" + decision.executed.toLowerCase());
   const note = $("decision-note");
   if (!decision) {
     note.textContent = "模型对四个方向给出概率，护栏只在提议不安全时纠正。";
@@ -777,6 +788,7 @@ function updateFlappyPanel(decision) {
     row.querySelector(".opt").textContent =
       (decision && decision.executed === d ? "✓ " : "") + FDIR_LABEL[d];
   }
+  if (decision) pressFx("f-" + decision.executed);
   const note = $("f-note");
   if (!decision) {
     note.textContent = "模型在「up 拍翅」和「down 滑翔」之间选择，护栏只纠正致命提议。";
