@@ -15,8 +15,6 @@ Face's Rust tokenizer and the encoder runs entirely on the NPU.
 [Upstream Laya](https://github.com/NandhaKishorM/laya) ·
 [MLX port this adapts](https://github.com/mizorewww/laya-mlx)
 
-![Decision playground](docs/playground.png)
-
 Laya is a bidirectional decision model: it answers constrained questions over text or
 structured state in one forward pass, without generating text.
 
@@ -110,9 +108,8 @@ laya-axera serve --root models/Laya --port 8010
 
 ## Web demo
 
-`laya-axera serve` hosts a two-view page plus a JSON API:
-
-![Snake demo](docs/snake.png)
+`laya-axera serve` hosts a five-view page plus a JSON API. One resident checkpoint
+answers for all of them:
 
 - **决策台 / Decisions** — edit state + questions, run them on the NPU, read the answers as
   probability bars with per-question latency. One click loads the board-validated sample
@@ -144,6 +141,29 @@ laya-axera serve --root models/Laya --port 8010
 | `POST /api/{flappy,tetris,breakout}/new` | `{model?, seed?, guarded?}` → session |
 | `POST /api/{flappy,tetris,breakout}/step` | `{session}` → one Laya-decided move |
 | `POST /api/tetris/place` | `{session, rotation, col}` → your move, rated against the model's |
+
+Every game rail carries a dimmed control pad that lights up with the action the model
+executed, and the game loops play back the physics frames the server actually ran.
+
+**决策台 / Decisions** — four typed questions over one support ticket
+
+![Decision playground](docs/playground.png)
+
+**贪吃蛇 / Snake** — three questions per move
+
+![Snake](docs/snake.png)
+
+**Flappy Bird** — one binary decision per step
+
+![Flappy Bird](docs/flappy.png)
+
+**俄罗斯方块 / Tetris** — four placements rated independently
+
+![Tetris](docs/tetris.png)
+
+**打方块 / Breakout** — left / right / hold, one question per step
+
+![Breakout](docs/breakout.png)
 
 ## Parity with the board-validated outputs
 

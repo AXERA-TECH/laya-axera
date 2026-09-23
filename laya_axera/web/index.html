@@ -401,7 +401,7 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
   <section id="view-breakout" hidden>
     <div class="snake-grid">
       <div class="board-wrap">
-        <canvas id="bboard" width="960" height="672" aria-label="打方块棋盘，挡板每一步的移动由 Laya 在 NPU 上实时决策"></canvas>
+        <canvas id="bboard" width="960" height="768" aria-label="打方块棋盘，挡板每一步的移动由 Laya 在 NPU 上实时决策"></canvas>
         <div class="overlay" id="b-overlay">
           <div id="b-overlay-title">挡板的每一步，都是一次 NPU 决策</div>
           <small id="b-overlay-sub">规则引擎预测落点并描述三个动作的后果，模型三选一，单问题约 30ms。</small>
@@ -806,8 +806,11 @@ function updateFlappyPanel(decision) {
   }
 }
 
-function drawFlappy(snap) {
+function drawFlappy(snap, frame) {
   state._flappySnap = snap;
+  state._flappyFrame = frame || null;
+  const birdY = frame ? frame[0] : snap.y;
+  const shift = frame ? frame[1] : 0;
   const canvas = $("fboard");
   const ctx = canvas.getContext("2d");
   const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
@@ -817,13 +820,13 @@ function drawFlappy(snap) {
   ctx.fillStyle = css.getPropertyValue("--aqua").trim();
   const pw = snap.pipe_w * cw;
   for (const p of snap.pipes) {
-    const x = p.x * cw - pw / 2;
+    const x = (p.x + shift) * cw - pw / 2;
     const topH = (p.gap_y - snap.gap / 2) * ch;
     const botY = (p.gap_y + snap.gap / 2) * ch;
     ctx.beginPath(); ctx.roundRect(x, -8, pw, topH + 8, 4); ctx.fill();
     ctx.beginPath(); ctx.roundRect(x, botY, pw, canvas.height - botY + 8, 4); ctx.fill();
   }
-  const bx = snap.bird_x * cw, by = snap.y * ch, br = snap.bird_r * cw * 1.35;
+  const bx = snap.bird_x * cw, by = birdY * ch, br = snap.bird_r * cw * 1.35;
   ctx.fillStyle = css.getPropertyValue("--orange").trim();
   ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = css.getPropertyValue("--board").trim();
@@ -858,7 +861,7 @@ async function flappyNew() {
     $("flappy-toggle").textContent = "暂停";
     initFlappyRows();
     updateFlappyPanel(null);
-    drawFlappy(data.state);
+    drawFlappy(data.state, null);
     updateFlappyStats(data.state, null, null);
     refreshInfo(true);
     flappyLoop(state.flappy.gen);
@@ -887,8 +890,13 @@ async function flappyLoop(gen) {
   }
   if (!state.flappy || state.flappy.gen !== gen) return;
   if (data.decision) updateFlappyPanel(data.decision);
-  drawFlappy(data.state);
   updateFlappyStats(data.state, data.stats, data.decision);
+  const remain = Math.max(0, target - (performance.now() - t0));
+  if (data.trail && data.trail.length > 1 && remain >= 40) {
+    await playTrail(data.trail, remain, (fr) => drawFlappy(data.state, fr));
+    if (!state.flappy || state.flappy.gen !== gen) return;
+  }
+  drawFlappy(data.state, null);
   f.lastTick = t0;
   if (data.done) {
     f.playing = false;
@@ -955,14 +963,18 @@ function updateBreakoutPanel(decision, snap) {
     $("b-g-err-v").textContent = decision.error.toFixed(2) + " 格";
   }
   if (snap) {
-    $("b-g-brick").style.width = ((snap.bricks_left / 40) * 100).toFixed(1) + "%";
-    $("b-g-brick-v").textContent = snap.bricks_left + " / 40";
+    const total = snap.bricks_total || snap.bricks_left || 1;
+    $("b-g-brick").style.width = ((snap.bricks_left / total) * 100).toFixed(1) + "%";
+    $("b-g-brick-v").textContent = snap.bricks_left + " / " + total;
   }
 }
 
-function drawBreakout(snap, target) {
+function drawBreakout(snap, frame) {
   state._breakoutSnap = snap;
-  state._breakoutTarget = target;
+  state._breakoutFrame = frame || null;
+  const ballX = frame ? frame[0] : snap.ball[0];
+  const ballY = frame ? frame[1] : snap.ball[1];
+  const padX = frame ? frame[2] : snap.paddle_x;
   const canvas = $("bboard");
   const ctx = canvas.getContext("2d");
   const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
@@ -976,23 +988,13 @@ function drawBreakout(snap, target) {
     ctx.roundRect(c * snap.brick_w * cw + 2, r * ch + 2, snap.brick_w * cw - 4, ch - 4, 3);
     ctx.fill();
   }
-  if (target != null) {
-    ctx.strokeStyle = css.getPropertyValue("--ink-3").trim();
-    ctx.setLineDash([5, 5]);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(target * cw, snap.paddle_y * ch - ch * 1.6);
-    ctx.lineTo(target * cw, snap.paddle_y * ch + ch * 0.5);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
   ctx.fillStyle = css.getPropertyValue("--blue").trim();
   ctx.beginPath();
-  ctx.roundRect((snap.paddle_x - snap.paddle_w / 2) * cw, snap.paddle_y * ch, snap.paddle_w * cw, ch * 0.45, 4);
+  ctx.roundRect((padX - snap.paddle_w / 2) * cw, snap.paddle_y * ch, snap.paddle_w * cw, ch * 0.45, 4);
   ctx.fill();
   ctx.fillStyle = css.getPropertyValue("--orange").trim();
   ctx.beginPath();
-  ctx.arc(snap.ball[0] * cw, snap.ball[1] * ch, snap.ball_r * cw * 1.25, 0, Math.PI * 2);
+  ctx.arc(ballX * cw, ballY * ch, snap.ball_r * cw * 1.3, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -1053,8 +1055,13 @@ async function breakoutLoop(gen) {
   }
   if (!state.breakout || state.breakout.gen !== gen) return;
   if (data.decision) updateBreakoutPanel(data.decision, data.state);
-  drawBreakout(data.state, data.decision ? data.decision.target : null);
   updateBreakoutStats(data.state, data.stats, data.decision);
+  const remain = Math.max(0, target - (performance.now() - t0));
+  if (data.trail && data.trail.length > 1 && remain >= 40) {
+    await playTrail(data.trail, remain, (f) => drawBreakout(data.state, f));
+    if (!state.breakout || state.breakout.gen !== gen) return;
+  }
+  drawBreakout(data.state, null);
   b.lastTick = t0;
   if (data.done) {
     b.playing = false;
@@ -1259,6 +1266,22 @@ const T_SHAPES = {
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Replay the physics frames the server actually ran, spread over the budget.
+function playTrail(trail, budgetMs, render) {
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let last = -1;
+    const frame = (now) => {
+      const p = Math.min(1, (now - t0) / budgetMs);
+      const idx = Math.min(trail.length - 1, Math.floor(p * trail.length));
+      if (idx !== last) { render(trail[idx]); last = idx; }
+      if (p < 1) requestAnimationFrame(frame);
+      else resolve();
+    };
+    requestAnimationFrame(frame);
+  });
+}
 
 function pieceFrame(prevSnap, letter, rot, col, rowFloat, ghosts) {
   const ch = $("tboard").height / prevSnap.height;
@@ -1683,9 +1706,9 @@ function applyTheme(t) {
   else delete document.documentElement.dataset.theme;
   $("theme-toggle").textContent = effectiveTheme() === "dark" ? "☀" : "☾";
   if (state._snakeSnap) drawBoard(state._snakeSnap);
-  if (state._flappySnap) drawFlappy(state._flappySnap);
+  if (state._flappySnap) drawFlappy(state._flappySnap, state._flappyFrame);
   if (state._tetrisSnap) drawTetris(state._tetrisSnap, state._tetrisPlaced);
-  if (state._breakoutSnap) drawBreakout(state._breakoutSnap, state._breakoutTarget);
+  if (state._breakoutSnap) drawBreakout(state._breakoutSnap, state._breakoutFrame);
 }
 $("theme-toggle").onclick = () => {
   const next = effectiveTheme() === "dark" ? "light" : "dark";

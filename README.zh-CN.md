@@ -105,6 +105,8 @@ laya-axera serve --root models/Laya --port 8010
 
 ## 网页演示
 
+`laya-axera serve` 提供五个视图和一套 JSON 接口，共用同一份驻留 checkpoint：
+
 - **决策台** —— 编辑 state 和 questions，提交到 NPU，以概率条形式查看答案与逐问题延迟；
   一键载入所选 checkpoint 的板端验证示例。
 - **打方块** —— 规划器预测球在挡板行的落点，描述左移/右移/不动三个动作的后果，模型每步三选一，
@@ -120,6 +122,29 @@ laya-axera serve --root models/Laya --port 8010
 接口：`GET /api/info`、`GET /api/samples/{name}`、`POST /api/predict`、
 `POST /api/snake/new`、`POST /api/snake/step`，以及 flappy / tetris / breakout 的
 `new` 与 `step`（俄罗斯方块另有手动模式的 `POST /api/tetris/place`）。
+
+每个游戏侧栏都有一排置灰的操作按钮，会随模型实际执行的动作点亮；游戏循环回放的是服务端
+真实跑过的物理帧。
+
+**决策台** —— 一条工单，四个类型化问题
+
+![决策台](docs/playground.png)
+
+**贪吃蛇** —— 每步三个问题
+
+![贪吃蛇](docs/snake.png)
+
+**Flappy Bird** —— 每步一个二选一决策
+
+![Flappy Bird](docs/flappy.png)
+
+**俄罗斯方块** —— 四个候选落点独立评分
+
+![俄罗斯方块](docs/tetris.png)
+
+**打方块** —— 左移 / 右移 / 不动，每步一问
+
+![打方块](docs/breakout.png)
 
 ## 与板端验证输出的一致性
 

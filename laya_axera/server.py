@@ -254,6 +254,7 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
         stats["inference_ms_total"] += decision.inference_ms
         return {
             "decision": decision.to_dict(),
+            "trail": game.trail,
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive,
@@ -379,6 +380,7 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
         stats["inference_ms_total"] += decision.inference_ms
         return {
             "decision": decision.to_dict(),
+            "trail": game.trail,
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive or game.won,

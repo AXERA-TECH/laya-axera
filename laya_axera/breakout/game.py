@@ -1,22 +1,24 @@
 """Deterministic Breakout rules in cell units, with a landing-point planner.
 
 The y axis grows downward (canvas convention). One decision step advances
-FRAMES_PER_STEP physics frames; the chosen action shifts the paddle once at the
-start of the step.
+FRAMES_PER_STEP physics frames, sliding the paddle across them, and records
+every frame in `trail` so the client can play the step back smoothly.
 """
 
 import math
 import random
 
-WIDTH, HEIGHT = 20, 14
-FRAMES_PER_STEP = 3
-BALL_R = 0.3
-BALL_SPEED = 0.42
+WIDTH, HEIGHT = 20, 16
+# Many small frames per decision: the same travel per step as before, but the
+# client gets a sub-frame trail to play back instead of one jump.
+FRAMES_PER_STEP = 8
+BALL_R = 0.26
+BALL_SPEED = 0.16
 PADDLE_W = 3.2
 PADDLE_Y = HEIGHT - 1.0
 PADDLE_STEP = 1.1
-BRICK_ROWS = (2, 3, 4, 5)
-BRICK_W = 2
+BRICK_ROWS = (1, 2, 3, 4, 5, 6)
+BRICK_W = 1
 LIVES = 3
 ACTIONS = ("left", "right", "hold")
 
@@ -26,6 +28,8 @@ class BreakoutGame:
         self.seed = seed
         self.rng = random.Random(seed)
         self.bricks = {(r, c) for r in BRICK_ROWS for c in range(WIDTH // BRICK_W)}
+        self.bricks_total = len(self.bricks)
+        self.trail = []
         self.paddle_x = WIDTH / 2
         self.lives = LIVES
         self.score = self.steps = 0
@@ -126,14 +130,19 @@ class BreakoutGame:
         }
 
     def step(self, action):
+        """Advance one decision step; `trail` holds each frame for client playback."""
         if not self.alive or self.won:
             raise RuntimeError("Cannot step a finished game")
         if action not in ACTIONS:
             raise ValueError(f"Unknown action: {action}")
-        self.paddle_x = self.paddle_after(action)
+        # The paddle slides across the step rather than teleporting at its start.
+        per_frame = (self.paddle_after(action) - self.paddle_x) / FRAMES_PER_STEP
         ball = (self.ball_x, self.ball_y, self.ball_vx, self.ball_vy)
+        trail = []
         for _ in range(FRAMES_PER_STEP):
+            self.paddle_x += per_frame
             ball, outcome = self._advance(ball, self.bricks, self.paddle_x)
+            trail.append([round(ball[0], 3), round(ball[1], 3), round(self.paddle_x, 3)])
             if outcome == "brick":
                 self.score += 10
                 if not self.bricks:
@@ -146,12 +155,14 @@ class BreakoutGame:
                     self.alive = False
                     self.end_reason = "missed"
                 else:
-                    self.ball_x, self.ball_y = ball[0], ball[1]
+                    self.paddle_x = WIDTH / 2
                     self._launch()
                     ball = (self.ball_x, self.ball_y, self.ball_vx, self.ball_vy)
+                    trail.append([round(ball[0], 3), round(ball[1], 3), round(self.paddle_x, 3)])
                 break
         self.ball_x, self.ball_y, self.ball_vx, self.ball_vy = ball
         self.steps += 1
+        self.trail = trail
         return self.alive and not self.won
 
     def snapshot(self):
@@ -167,6 +178,7 @@ class BreakoutGame:
             "brick_w": BRICK_W,
             "bricks": sorted([r, c] for r, c in self.bricks),
             "bricks_left": len(self.bricks),
+            "bricks_total": self.bricks_total,
             "score": self.score,
             "lives": self.lives,
             "steps": self.steps,

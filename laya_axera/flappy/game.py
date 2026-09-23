@@ -7,11 +7,14 @@ start of the step.
 
 import random
 
-FRAMES_PER_STEP = 4
-GRAVITY = 0.055  # cells per frame^2
-FLAP_VY = -0.42  # cells per frame, set (not added) on flap
-MAX_VY = 0.60
-SCROLL = 0.11  # cells per frame
+# Finer frames than one decision needs: the trajectory per decision is unchanged
+# (velocities scale by 1/k, gravity by 1/k^2), but each step now carries a
+# sub-frame trail the client plays back instead of a single jump.
+FRAMES_PER_STEP = 10
+GRAVITY = 0.0088  # cells per frame^2
+FLAP_VY = -0.168  # cells per frame, set (not added) on flap
+MAX_VY = 0.24
+SCROLL = 0.044  # cells per frame
 BIRD_X = 6.0
 BIRD_R = 0.32
 PIPE_W = 1.6
@@ -33,6 +36,7 @@ class FlappyGame:
             self.pipes.append(self._new_pipe(x))
             x += spacing
         self.score = self.steps = self.frames = 0
+        self.trail = []
         self.alive = True
         self.death_reason = None
 
@@ -73,14 +77,25 @@ class FlappyGame:
             self.pipes.append(self._new_pipe(self.pipes[-1]["x"] + self.spacing))
 
     def step(self, flap: bool):
+        """Advance one decision step; `trail` holds each frame for client playback.
+
+        A trail entry is [bird_y, pipe_shift], where pipe_shift is added to the
+        final pipe positions to place them at that frame.
+        """
         if not self.alive:
             raise RuntimeError("Cannot step a finished game")
         if flap:
             self.vy = FLAP_VY
+        frames = []
         for _ in range(FRAMES_PER_STEP):
             self._advance_frame()
+            frames.append(round(self.y, 3))
             if not self.alive:
                 break
+        total = SCROLL * len(frames)
+        self.trail = [
+            [y, round(total - SCROLL * (i + 1), 3)] for i, y in enumerate(frames)
+        ]
         self.steps += 1
         return self.alive
 
