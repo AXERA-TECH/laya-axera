@@ -289,7 +289,6 @@ async function snakeNew() {
     const data = await api("/api/snake/new", {
       model: state.current,
       guarded: $("guarded").checked,
-      prompt: $("prompt-style").value,
     });
     state.snake = { session: data.session, playing: true, gen: (state.snake ? state.snake.gen : 0) + 1, lastTick: 0 };
     $("overlay").hidden = true;
@@ -1440,7 +1439,7 @@ const KEYMAP = {
 };
 
 function activeView() {
-  return ["decide", "snake", "bird", "blocks", "bricks", "tank"].find((v) => !$("view-" + v).hidden);
+  return ["decide", "snake", "bird", "blocks", "bricks", "tank", "paddle"].find((v) => !$("view-" + v).hidden);
 }
 
 function queueSnake(dir) {
@@ -1497,7 +1496,7 @@ function showError(id, msg) { const el = $(id); el.textContent = msg; el.hidden 
 function hide(id) { $(id).hidden = true; }
 
 function switchView(name) {
-  for (const v of ["decide", "snake", "bird", "blocks", "bricks", "tank"]) {
+  for (const v of ["decide", "snake", "bird", "blocks", "bricks", "tank", "paddle"]) {
     $("view-" + v).hidden = name !== v;
     $("nav-" + v).classList.toggle("active", name === v);
   }
@@ -1533,6 +1532,7 @@ $("nav-bird").onclick = () => switchView("bird");
 $("nav-blocks").onclick = () => switchView("blocks");
 $("nav-bricks").onclick = () => switchView("bricks");
 $("nav-tank").onclick = () => switchView("tank");
+$("nav-paddle").onclick = () => switchView("paddle");
 $("run").onclick = runPredict;
 $("load-sample").onclick = loadSample;
 $("snake-new").onclick = snakeNew;

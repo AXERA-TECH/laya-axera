@@ -4,7 +4,7 @@
 
 基于 [PyAXEngine](https://github.com/AXERA-TECH/pyaxengine) 推理
 [AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Laya) 的 AXModel checkpoint，
-并提供网页演示：一个决策台和五个小游戏，其中一个可以和 AI 对战。
+并提供网页演示：一个决策台和六个小游戏，其中两个可以和 AI 对战。
 
 单张 AX8850（AXCL）上 multilingual checkpoint **约 31 ms/问题**，**0 个输出 token**。
 不依赖 PyTorch / Transformers 运行时 / 云端 API —— 分词用 Hugging Face Rust tokenizer，
@@ -105,27 +105,32 @@ laya-axera serve --root models/Laya --port 8010
 
 ## 网页演示
 
-`laya-axera serve` 提供六个页面和一套 JSON 接口，共用同一份驻留的 checkpoint。每个游戏都可以
+`laya-axera serve` 提供七个页面和一套 JSON 接口，共用同一份驻留的 checkpoint。每个游戏都可以
 交给 AI 玩，也可以切到「手动」自己玩：键盘用方向键或 WASD，空格执行动作，也可以点页面上的按钮。
 手动模式下 AI 仍然每步都在做判断，页面会显示你和它是否选得一样。
 
 - **决策台**：编辑 state 和 questions，在 NPU 上运行，看每个问题的概率分布和耗时；
   可一键载入 checkpoint 自带的验证示例。
-- **贪吃蛇**：每步问三个问题（走向 / 风险 / 食物）。确定性的循环护栏会纠正不安全的走法，并统计次数。
+- **贪吃蛇**：每步问三个问题（走向 / 风险 / 食物）。规划器走最短路去吃，但要求沿途每一步都还能追到
+  自己的尾巴，否则先兜圈腾空间。吃果子的效率是原来哈密顿回路规划器的 1.8 倍，20 个种子各跑 8000 步
+  没有死过、也没有卡住。
 - **飞鸟**：每步一个二选一（拍翅 / 滑翔），穿过高低不一的石柱空隙。
 - **落块**：启发式先挑出 4 个候选落点，模型用 `noul` 对每个单独打分，放在分数最高的位置。
 - **打方块**：每步在左移 / 右移 / 不动之间三选一。实测 400 步与规划器 400/400 一致。
 - **坦克对决**：你和 AI 实时对战。战场在浏览器里运行，只有 AI 的每一步来自 `/api/tank/decide`。
   难度（简单 / 困难 / 地狱）限制 AI 的决策频率（每 900 / 450 / 220 ms 一次）以及移动和射击速度。
+- **乒乓**：从你这一端看过去的球桌，你和 AI 对打。AI 用打方块同一套措辞在左移 / 右移 / 不动之间选择，
+  每次移动朝预计落点滑过去、到了就停，所以网络延迟只会让它反应慢，不会让它乱晃。
 
 各游戏的提示措辞都经过模型概率实测选定。坦克对决的选项用罗盘方向（north / south / west /
 east）：`right` 在英文里同时有「正确」的意思，会把概率吸到自己身上，`fire` 也一样，所以开火
 被做成某个方向的一种执行方式。状态句固定、选项描述只有四档，整个输入空间一共 108 种组合，
-已经全部在 NPU 上跑过，模型在每一种情况下都会执行规划器给出的最佳动作。
+已经全部在 NPU 上跑过，模型在每一种情况下都会执行规划器给出的最佳动作。贪吃蛇的走向问题也用同样
+方式验证过（标签 up / down / left / east，108/108，最小胜出边际 0.161），乒乓的三选一则穷举了全部 12 种描述组合。
 
 接口：`GET /api/info`、`GET /api/samples/{name}`、`POST /api/predict`，
 `POST /api/{snake,bird,blocks,bricks}/new`，`POST /api/{snake,bird,bricks}/step`（带 `action`
-即为手动操作），`POST /api/blocks/step`、`POST /api/blocks/place`，以及 `POST /api/tank/decide`。
+即为手动操作），`POST /api/blocks/step`、`POST /api/blocks/place`，以及 `POST /api/tank/decide`、`POST /api/paddle/decide`。
 
 **决策台**
 
@@ -151,6 +156,10 @@ east）：`right` 在英文里同时有「正确」的意思，会把概率吸�
 
 ![坦克对决](docs/tank.png)
 
+**乒乓**
+
+![乒乓](docs/paddle.png)
+
 ## 与板端验证输出的一致性
 
 三个 checkpoint 均复现了模型包内 `axllm` 在 AX8850 板上录制的 `sample_output.json`：
@@ -158,8 +167,8 @@ east）：`right` 在英文里同时有「正确」的意思，会把概率吸�
 urgency 1.9359、refund 0.9925、churn 0.9400）。
 
 ```bash
-pytest tests/test_common.py tests/test_tank_planner.py       # 无需硬件
-node tests/js/tank_sim.test.js                                # 坦克对决的对战模拟
+pytest tests/test_common.py tests/test_tank_planner.py tests/test_paddle_planner.py   # 无需硬件
+node tests/js/tank_sim.test.js && node tests/js/paddle_sim.test.js                     # 对战模拟
 LAYA_AXERA_MODEL_DIR=models/Laya/multilingual pytest tests/   # 在 NPU 上
 ```
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Laya on AXERA</title>
-<link rel="stylesheet" href="app.css?v=5">
+<link rel="stylesheet" href="app.css?v=6">
 </head>
 <body>
 
@@ -17,6 +17,7 @@
     <button id="nav-blocks">落块</button>
     <button id="nav-bricks">打方块</button>
     <button id="nav-tank">坦克对决</button>
+    <button id="nav-paddle">乒乓</button>
   </nav>
   <div id="engine">连接中…</div>
   <button id="theme-toggle" class="theme-btn" aria-label="切换深浅色" title="切换深浅色">☾</button>
@@ -65,12 +66,6 @@
             <input type="range" id="speed" min="1" max="11" value="6" aria-label="每秒步数，最右为不限速">
           </label>
           <label><input type="checkbox" id="guarded" checked> 安全护栏</label>
-          <label>提示词
-            <select id="prompt-style">
-              <option value="compact" selected>compact</option>
-              <option value="detailed">detailed</option>
-            </select>
-          </label>
         </div>
         <div class="dpad" id="s-dpad">
           <button class="btn" id="s-left" aria-label="左" disabled>←</button>
@@ -279,10 +274,53 @@
       </aside>
     </div>
   </section>
+  <section id="view-paddle" hidden>
+    <div class="snake-grid">
+      <div class="board-wrap">
+        <canvas id="pboard" width="720" height="880" aria-label="乒乓"></canvas>
+        <div class="overlay" id="p-overlay">
+          <div id="p-overlay-title">乒乓</div>
+          <small id="p-overlay-sub">你在近端（蓝色球拍），AI 在远端。← → 或 A D 移动，先得 5 分获胜。</small>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="controls">
+          <button class="btn primary" id="paddle-new">开始对战</button>
+          <button class="btn" id="paddle-toggle" disabled>暂停</button>
+          <span class="mode-seg" id="p-level">
+            <button data-level="easy" class="active">简单</button>
+            <button data-level="hard">困难</button>
+            <button data-level="hell">地狱</button>
+          </span>
+        </div>
+        <div class="scoreline">
+          <div class="side"><span class="who you">你</span><span class="big" id="p-score-you">0</span></div>
+          <div class="side right"><span class="big" id="p-score-ai">0</span><span class="who ai">AI</span></div>
+        </div>
+        <div class="keys">键盘：← → 或 A D 移动球拍</div>
+        <div class="rail-cap">AI 的操作</div>
+        <div class="dpad" id="p-dpad">
+          <button class="btn" id="p-left" aria-label="左移" disabled>◀</button>
+          <button class="btn" id="p-hold" aria-label="不动" disabled>■</button>
+          <button class="btn" id="p-right" aria-label="右移" disabled>▶</button>
+        </div>
+        <div class="dir-rows" id="p-rows"></div>
+        <div class="decision-note" id="p-note">–</div>
+        <div class="stats">
+          <div class="stat"><div class="slabel">AI 决策</div><div class="sval" id="p-s-dec">0</div></div>
+          <div class="stat"><div class="slabel">单次推理</div><div class="sval" id="p-s-inf">–<small> ms</small></div></div>
+          <div class="stat"><div class="slabel">决策间隔</div><div class="sval" id="p-s-gap">–<small> ms</small></div></div>
+          <div class="stat"><div class="slabel">本回合击球</div><div class="sval" id="p-s-rally">0</div></div>
+        </div>
+        <div class="error" id="paddle-error" hidden></div>
+      </aside>
+    </div>
+  </section>
 </main>
 
-<script src="gfx.js?v=5"></script>
-<script src="app.js?v=5"></script>
-<script src="tank.js?v=5"></script>
+<script src="gfx.js?v=6"></script>
+<script src="app.js?v=6"></script>
+<script src="tank.js?v=6"></script>
+<script src="paddle.js?v=6"></script>
 </body>
 </html>

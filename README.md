@@ -4,7 +4,7 @@
 
 Python inference for the [AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Laya) AXModel
 checkpoints through [PyAXEngine](https://github.com/AXERA-TECH/pyaxengine), with a web demo:
-a decision playground and five small games, one of them played against you.
+a decision playground and six small games, two of them played against you.
 
 **~31 ms** per question with the multilingual checkpoint on one AX8850 (AXCL). **0 output
 tokens.** No PyTorch, no Transformers runtime, no cloud API — tokenization uses Hugging
@@ -108,15 +108,17 @@ laya-axera serve --root models/Laya --port 8010
 
 ## Web demo
 
-`laya-axera serve` hosts six views and a JSON API, all answered by one resident checkpoint.
+`laya-axera serve` hosts seven views and a JSON API, all answered by one resident checkpoint.
 Each game can be played by the AI or by hand, with the keyboard (arrows or WASD, space to
 act) or the on-screen pad. In manual mode the AI still decides every step, and the page shows
 whether you agreed with it.
 
 - **决策台 / Decisions**: edit state and questions, run them on the NPU, and read each answer
   as probability bars with its latency. One click loads the checkpoint's validated sample.
-- **贪吃蛇 / Snake**: three questions per move (move / risk / food). A deterministic cycle
-  shield can correct unsafe moves; every correction is counted.
+- **贪吃蛇 / Snake**: three questions per move (move / risk / food). The planner takes the
+  shortest route to the food only if the tail stays reachable at every step of it, and
+  otherwise wanders to buy room. It eats 1.8x as fast as the Hamiltonian-cycle planner it
+  replaced, and over 20 seeds x 8000 steps it neither died nor stalled.
 - **飞鸟 / Bird**: one binary decision per step, flap or glide, through stone pillars whose
   gaps vary in height.
 - **落块 / Falling blocks**: a heuristic shortlists four placements and the model rates each
@@ -126,12 +128,17 @@ whether you agreed with it.
 - **坦克对决 / Tank duel**: you against the AI in real time. The arena runs in the browser and
   only the AI's moves come from `/api/tank/decide`. Difficulty (简单 / 困难 / 地狱) limits how
   often the AI may decide (every 900 / 450 / 220 ms) and how fast it moves and shoots.
+- **乒乓 / Paddle duel**: you against the AI across a table seen from your end. The AI picks
+  left / right / hold with the bricks game's wording; each move glides toward the predicted
+  landing point and stops there, so network delay makes it slower rather than erratic.
 
 The game wording is chosen by probing the model, not by guesswork. For the tank duel the
 labels are compass directions: `right` also means "correct" and pulled probability toward
 itself, and a `fire` label did the same, so shooting is a mode of a direction instead. With a
 constant state and four fixed option tiers the whole input space is 108 cases; all 108 were
-run on the NPU and the model follows the planner in every one.
+run on the NPU and the model follows the planner in every one. The snake's move question is
+certified the same way (labels up / down / left / east, 108 of 108, smallest winning margin
+0.161), and so is the three-way paddle question (all 12 tier assignments).
 
 | Endpoint | Meaning |
 |---|---|
@@ -143,6 +150,7 @@ run on the NPU and the model follows the planner in every one.
 | `POST /api/blocks/step` | `{session}` → one piece placed by the model |
 | `POST /api/blocks/place` | `{session, rotation, col}` → your placement, rated against the model's |
 | `POST /api/tank/decide` | `{grid, ai, player, bullets}` → the AI tank's next action |
+| `POST /api/paddle/decide` | `{court, ball, ai}` → the AI paddle's next move |
 
 **决策台 / Decisions**
 
@@ -168,6 +176,10 @@ run on the NPU and the model follows the planner in every one.
 
 ![Tank duel](docs/tank.png)
 
+**乒乓 / Paddle duel**
+
+![Paddle duel](docs/paddle.png)
+
 ## Parity with the board-validated outputs
 
 All three checkpoints reproduce the packaged `sample_output.json` recorded with `axllm` on
@@ -176,8 +188,8 @@ an AX8850 board: identical selected labels, and probabilities matching to 4 deci
 Run the checks yourself on a device:
 
 ```bash
-pytest tests/test_common.py tests/test_tank_planner.py       # hardware-free
-node tests/js/tank_sim.test.js                                # tank duel simulation
+pytest tests/test_common.py tests/test_tank_planner.py tests/test_paddle_planner.py   # hardware-free
+node tests/js/tank_sim.test.js && node tests/js/paddle_sim.test.js                     # game simulations
 LAYA_AXERA_MODEL_DIR=models/Laya/multilingual pytest tests/   # on NPU
 ```
 

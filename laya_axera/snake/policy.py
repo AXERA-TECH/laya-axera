@@ -1,7 +1,13 @@
 """Real Laya predictions on the NPU, with an optional deterministic safety shield.
 
-Adapted from laya-mlx (see NOTICE): the planner features, prompt wording and the
-guarded execution rule are unchanged; inference runs through a laya_axera Agent.
+Adapted from laya-mlx (see NOTICE). The move question is probe-selected on the
+multilingual checkpoint: labels up / down / left / east ("right" also means
+"correct" and pulled probability toward itself; "north" did the same in this
+context), a constant state, and four fixed option tiers. That makes the move
+question's whole input space 4 best positions x 3^3 tier assignments = 108
+cases; all 108 were probed and the model picks the planner's move in every one,
+with a smallest winning margin of 0.161. Two noul questions (is a safe route
+available, is the food reachable) feed the page's gauges.
 """
 
 import math
@@ -9,6 +15,17 @@ import time
 from dataclasses import asdict, dataclass
 
 from .game import DIRECTIONS
+
+LABEL = {"UP": "up", "DOWN": "down", "LEFT": "left", "RIGHT": "east"}
+DIRECTION = {v: k for k, v in LABEL.items()}
+MOVE_STATE = "Stay alive and eat."
+MOVE_INSTRUCTIONS = "Choose the best safe action."
+TEXT = {
+    "best": "Safe. Best move.",
+    "wrong": "Wrong way.",
+    "trap": "Unsafe. Traps the snake.",
+    "wall": "Blocked. Wall.",
+}
 
 
 @dataclass
@@ -23,6 +40,7 @@ class Decision:
     inference_ms: float
     decision_ms: float
     input_tokens: int
+    output_tokens: int
     safe_count: int
     planner_best: str
 
@@ -31,91 +49,55 @@ class Decision:
 
 
 class LayaPolicy:
-    """Every move asks the resident checkpoint three questions: move, risk, food."""
-
-    def __init__(self, agent, *, guarded=True, prompt="compact"):
+    def __init__(self, agent, *, guarded=True):
         self.agent = agent
         self.guarded = guarded
-        if prompt not in ("compact", "detailed"):
-            raise ValueError("prompt must be compact or detailed")
-        self.prompt = prompt
 
     def decide(self, game):
         started = time.perf_counter()
         moves = game.moves()
         safe = [m for m in moves if m.safe]
-        if not safe and self.guarded:
-            raise RuntimeError("Cycle safety invariant violated: no safe action")
-        preferred = max(safe, key=lambda m: m.advance).direction if safe else "NONE"
-        reachable, space = game.food_reachability()
-        descriptions = {}
-        for move in moves:
-            if not move.legal:
-                descriptions[move.direction] = f"Collision: {move.reason}. Unsafe."
-            elif not move.safe:
-                descriptions[move.direction] = "Unsafe route. Risk of trapping the snake."
-            elif move.eats:
-                descriptions[move.direction] = "Safe. Eat the food immediately. Best move."
-            elif move.direction == preferred:
-                descriptions[move.direction] = "Safe. Best progress toward food."
+        preferred = game.preferred(moves)
+        if preferred is None:
+            raise RuntimeError("No legal move left")
+        tiers = {}
+        for m in moves:
+            if m.direction == preferred:
+                tiers[m.direction] = "best"
+            elif not m.legal:
+                tiers[m.direction] = "wall"
+            elif not m.safe:
+                tiers[m.direction] = "trap"
             else:
-                descriptions[move.direction] = "Safe but less progress toward food."
-        state = (
-            f"Snake game. {len(safe)} safe directions available. "
-            f"Food reachable through empty cells: {'yes' if reachable else 'no'}. "
-            f"Open cells: {space}. Snake length: {len(game.body)}. "
-            f"{'There is a safe route forward.' if safe else 'The snake is trapped.'}"
+                tiers[m.direction] = "wrong"
+        criteria = {LABEL[d]: TEXT[tiers[d]] for d in DIRECTIONS}
+        reachable, _ = game.food_reachability()
+        facts = (
+            f"Safe route: {'yes' if safe else 'no'}. "
+            f"Food reachable through empty cells: {'yes' if reachable else 'no'}."
         )
-        questions = {
-            "move": {
-                "type": "choice",
-                "instructions": "Select the safest move with best progress toward food. Avoid collisions.",
-                "criteria": descriptions,
-            },
-            "risk": {
-                "type": "noul",
-                "instructions": "Is there a safe route forward for the snake?",
-            },
-            "food": {
-                "type": "noul",
-                "instructions": "Is food reachable through the currently empty cells?",
-            },
-        }
-        if self.prompt == "compact":
-            state = (
-                f"Safe route: {'yes' if safe else 'no'}. "
-                f"Food reachable through empty cells: {'yes' if reachable else 'no'}."
-            )
-            questions["move"]["instructions"] = "Choose the best safe move toward food."
-            questions["move"]["criteria"] = {
-                m.direction: (
-                    "Blocked. Collision."
-                    if not m.legal
-                    else "Unsafe. Traps the snake."
-                    if not m.safe
-                    else "Safe. Eat food now. Best."
-                    if m.eats
-                    else "Safe. Best route to food."
-                    if m.direction == preferred
-                    else "Safe. Slower route."
-                )
-                for m in moves
-            }
-            questions["risk"]["instructions"] = "Is a safe route available?"
-            questions["food"]["instructions"] = "Is food reachable through empty cells?"
         inference_start = time.perf_counter()
-        output = self.agent.predict(state, questions)
+        move = self.agent.predict(
+            MOVE_STATE,
+            {"move": {"type": "choice", "instructions": MOVE_INSTRUCTIONS, "criteria": criteria}},
+        )
+        gauges = self.agent.predict(
+            facts,
+            {
+                "risk": {"type": "noul", "instructions": "Is a safe route available?"},
+                "food": {"type": "noul", "instructions": "Is food reachable through empty cells?"},
+            },
+        )
         inference_ms = (time.perf_counter() - inference_start) * 1000
-        answers = output["answers"]
-        probabilities = answers["move"]["probabilities"]
-        scores = [*probabilities.values(), answers["risk"]["noul"], answers["food"]["noul"]]
-        if any(not math.isfinite(value) or not 0 <= value <= 1 for value in scores):
+        probabilities = {DIRECTION[k]: v for k, v in move["answers"]["move"]["probabilities"].items()}
+        risk, food = gauges["answers"]["risk"]["noul"], gauges["answers"]["food"]["noul"]
+        if any(not math.isfinite(v) or not 0 <= v <= 1 for v in [*probabilities.values(), risk, food]):
             raise ValueError("Model returned an invalid probability; no move executed")
         proposed = max(DIRECTIONS, key=probabilities.__getitem__)
         allowed = [m.direction for m in safe]
         executed = (
             max(allowed, key=probabilities.__getitem__)
-            if self.guarded and proposed not in allowed
+            if self.guarded and allowed and proposed not in allowed
             else proposed
         )
         return Decision(
@@ -124,11 +106,12 @@ class LayaPolicy:
             executed=executed,
             safe_directions=allowed,
             intervened=proposed != executed,
-            dead_end_risk=1 - answers["risk"]["noul"],
-            food_reachable=answers["food"]["noul"],
+            dead_end_risk=1 - risk,
+            food_reachable=food,
             inference_ms=inference_ms,
             decision_ms=(time.perf_counter() - started) * 1000,
-            input_tokens=output["usage"]["input_tokens"],
+            input_tokens=move["usage"]["input_tokens"] + gauges["usage"]["input_tokens"],
+            output_tokens=0,
             safe_count=len(safe),
             planner_best=preferred,
         )

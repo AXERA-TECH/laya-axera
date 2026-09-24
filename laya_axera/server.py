@@ -21,6 +21,7 @@ from .blocks.policy import LayaBlocksPolicy
 from .bricks.game import ACTIONS as BRICK_ACTIONS
 from .bricks.game import BricksGame
 from .bricks.policy import LayaBricksPolicy
+from .paddle.policy import LayaPaddlePolicy
 from .snake.game import DIRECTIONS as SNAKE_DIRECTIONS
 from .snake.game import SnakeGame
 from .snake.policy import LayaPolicy
@@ -113,7 +114,6 @@ class SnakeNewBody(BaseModel):
     height: int = 16
     seed: Optional[int] = None
     guarded: bool = True
-    prompt: str = "compact"
 
 
 class GameNewBody(BaseModel):
@@ -133,6 +133,13 @@ class BlocksPlaceBody(BaseModel):
     session: str
     rotation: int
     col: int
+
+
+class PaddleDecideBody(BaseModel):
+    model: Optional[str] = None
+    court: Dict[str, Any]
+    ball: Dict[str, Any]
+    ai: Dict[str, Any]
 
 
 class TankDecideBody(BaseModel):
@@ -240,7 +247,7 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
         seed = _seed(body.seed)
         try:
             game = SnakeGame(width=body.width, height=body.height, seed=seed)
-            policy = LayaPolicy(agent, guarded=body.guarded, prompt=body.prompt)
+            policy = LayaPolicy(agent, guarded=body.guarded)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
         stats = {"moves": 0, "interventions": 0, "inference_ms_total": 0.0}
@@ -396,6 +403,15 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
         policy = LayaTankPolicy(registry.get(body.model))
         try:
             return policy.decide(body.grid, body.ai, body.player, body.bullets)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    # ---- paddle duel: the page runs the table, the server only moves the AI paddle ----
+    @app.post("/api/paddle/decide")
+    def paddle_decide(body: PaddleDecideBody):
+        policy = LayaPaddlePolicy(registry.get(body.model))
+        try:
+            return policy.decide(body.court, body.ball, body.ai)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
 

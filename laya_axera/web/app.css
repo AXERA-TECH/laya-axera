@@ -239,3 +239,5 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
 .scoreline .hearts { font-size: 18px; letter-spacing: 2px; color: var(--critical); }
 #kboard { image-rendering: auto; }
 #k-rows .bar-row { grid-template-columns: 100px 1fr 62px; }
+#pboard { width: 100%; max-width: 600px; margin: 0 auto; display: block; background: var(--board); border: 1px solid var(--border); border-radius: 6px; }
+.scoreline .big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
