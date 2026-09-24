@@ -1,4 +1,4 @@
-"""Deterministic Breakout rules in cell units, with a landing-point planner.
+"""Deterministic brick-breaker rules in cell units, with a landing-point planner.
 
 The y axis grows downward (canvas convention). One decision step advances
 FRAMES_PER_STEP physics frames, sliding the paddle across them, and records
@@ -23,7 +23,7 @@ LIVES = 3
 ACTIONS = ("left", "right", "hold")
 
 
-class BreakoutGame:
+class BricksGame:
     def __init__(self, seed=7):
         self.seed = seed
         self.rng = random.Random(seed)

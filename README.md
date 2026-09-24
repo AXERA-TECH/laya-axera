@@ -4,7 +4,7 @@
 
 Python inference for the [AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Laya) AXModel
 checkpoints through [PyAXEngine](https://github.com/AXERA-TECH/pyaxengine), with a web demo:
-a decision playground and a Snake game where every move is a real NPU decision.
+a decision playground and five small games, one of them played against you.
 
 **~31 ms** per question with the multilingual checkpoint on one AX8850 (AXCL). **0 output
 tokens.** No PyTorch, no Transformers runtime, no cloud API — tokenization uses Hugging
@@ -58,7 +58,7 @@ hf download AXERA-TECH/Laya --local-dir models/Laya
 
 Latencies measured with `python examples/bench.py <checkpoint>`: on-chip on an AX8850 dev
 board (multilingual 28.8 ms, english 71.1 ms, PyAXEngine, models NFS-mounted), AXCL on an
-idle x86 host card. The Snake demo asks three questions per move, so one move costs about
+idle x86 host card. The Snake game asks three questions per move, so one move costs about
 three question latencies.
 
 ## Python API
@@ -108,62 +108,65 @@ laya-axera serve --root models/Laya --port 8010
 
 ## Web demo
 
-`laya-axera serve` hosts a five-view page plus a JSON API. One resident checkpoint
-answers for all of them:
+`laya-axera serve` hosts six views and a JSON API, all answered by one resident checkpoint.
+Each game can be played by the AI or by hand, with the keyboard (arrows or WASD, space to
+act) or the on-screen pad. In manual mode the AI still decides every step, and the page shows
+whether you agreed with it.
 
-- **决策台 / Decisions** — edit state + questions, run them on the NPU, read the answers as
-  probability bars with per-question latency. One click loads the board-validated sample
-  request of the selected checkpoint.
-- **打方块 / Breakout** — the planner predicts where the ball will cross the paddle row
-  and describes left / right / hold; the model picks one per step, ~30 ms. Probed over
-  every rotation of which action is best, the three-way choice lands on the intended
-  action at 0.62-0.78, and in playtests it tracked the planner on 400/400 steps.
-- **Flappy Bird** — one binary decision per step (flap or glide), one NPU question at
-  ~30 ms: the planner describes each action's consequence, the model picks, and the
-  optional shield corrects only fatal proposals.
-- **俄罗斯方块 / Tetris** — the planner shortlists four placements; the model rates each
-  one independently with a noul question over a uniform Chinese statement (probe-selected:
-  choice-style ranking suffers heavy label bias in this domain) and the highest P(good)
-  placement is played. ~126 ms per piece, four NPU questions. A manual mode adds
-  ◀▶/A/B controls: you place, the model rates your move and shows its own pick.
-- **贪吃蛇 / Snake** — the laya-mlx Snake demo, served to the browser. Every move asks the
-  resident checkpoint three questions (move / risk / food) on the NPU; a deterministic cycle
-  safety shield can correct unsafe proposals, and every intervention is counted and shown.
-  About 10 moves/s with the multilingual checkpoint on one AXCL AX8850.
+- **决策台 / Decisions**: edit state and questions, run them on the NPU, and read each answer
+  as probability bars with its latency. One click loads the checkpoint's validated sample.
+- **贪吃蛇 / Snake**: three questions per move (move / risk / food). A deterministic cycle
+  shield can correct unsafe moves; every correction is counted.
+- **飞鸟 / Bird**: one binary decision per step, flap or glide, through stone pillars whose
+  gaps vary in height.
+- **落块 / Falling blocks**: a heuristic shortlists four placements and the model rates each
+  one independently with a `noul` question; the piece goes where the rating is highest.
+- **打方块 / Bricks**: left / right / hold, one question per step. In playtests the model
+  tracked the planner on 400 of 400 steps.
+- **坦克对决 / Tank duel**: you against the AI in real time. The arena runs in the browser and
+  only the AI's moves come from `/api/tank/decide`. Difficulty (简单 / 困难 / 地狱) limits how
+  often the AI may decide (every 900 / 450 / 220 ms) and how fast it moves and shoots.
+
+The game wording is chosen by probing the model, not by guesswork. For the tank duel the
+labels are compass directions: `right` also means "correct" and pulled probability toward
+itself, and a `fire` label did the same, so shooting is a mode of a direction instead. With a
+constant state and four fixed option tiers the whole input space is 108 cases; all 108 were
+run on the NPU and the model follows the planner in every one.
 
 | Endpoint | Meaning |
 |---|---|
 | `GET /api/info` | Version, default checkpoint, load status |
 | `GET /api/samples/{name}` | Packaged sample request of a checkpoint |
 | `POST /api/predict` | `{model?, state, questions}` → answers |
-| `POST /api/snake/new` | `{model?, seed?, guarded?, prompt?}` → session |
-| `POST /api/snake/step` | `{session}` → one Laya-decided move |
-| `POST /api/{flappy,tetris,breakout}/new` | `{model?, seed?, guarded?}` → session |
-| `POST /api/{flappy,tetris,breakout}/step` | `{session}` → one Laya-decided move |
-| `POST /api/tetris/place` | `{session, rotation, col}` → your move, rated against the model's |
+| `POST /api/{snake,bird,blocks,bricks}/new` | `{model?, seed?, guarded?}` → session |
+| `POST /api/{snake,bird,bricks}/step` | `{session, action?}` → one step; `action` plays it by hand |
+| `POST /api/blocks/step` | `{session}` → one piece placed by the model |
+| `POST /api/blocks/place` | `{session, rotation, col}` → your placement, rated against the model's |
+| `POST /api/tank/decide` | `{grid, ai, player, bullets}` → the AI tank's next action |
 
-Every game rail carries a dimmed control pad that lights up with the action the model
-executed, and the game loops play back the physics frames the server actually ran.
-
-**决策台 / Decisions** — four typed questions over one support ticket
+**决策台 / Decisions**
 
 ![Decision playground](docs/playground.png)
 
-**贪吃蛇 / Snake** — three questions per move
+**贪吃蛇 / Snake**
 
 ![Snake](docs/snake.png)
 
-**Flappy Bird** — one binary decision per step
+**飞鸟 / Bird**
 
-![Flappy Bird](docs/flappy.png)
+![Bird](docs/bird.png)
 
-**俄罗斯方块 / Tetris** — four placements rated independently
+**落块 / Falling blocks**
 
-![Tetris](docs/tetris.png)
+![Falling blocks](docs/blocks.png)
 
-**打方块 / Breakout** — left / right / hold, one question per step
+**打方块 / Bricks**
 
-![Breakout](docs/breakout.png)
+![Bricks](docs/bricks.png)
+
+**坦克对决 / Tank duel**
+
+![Tank duel](docs/tank.png)
 
 ## Parity with the board-validated outputs
 
@@ -173,7 +176,8 @@ an AX8850 board: identical selected labels, and probabilities matching to 4 deci
 Run the checks yourself on a device:
 
 ```bash
-pytest tests/test_common.py                                   # hardware-free
+pytest tests/test_common.py tests/test_tank_planner.py       # hardware-free
+node tests/js/tank_sim.test.js                                # tank duel simulation
 LAYA_AXERA_MODEL_DIR=models/Laya/multilingual pytest tests/   # on NPU
 ```
 

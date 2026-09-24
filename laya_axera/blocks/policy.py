@@ -34,7 +34,7 @@ def describe(cand):
 
 
 @dataclass
-class TetrisDecision:
+class BlocksDecision:
     candidates: List[dict]
     proposed: int
     executed: int
@@ -48,7 +48,7 @@ class TetrisDecision:
         return asdict(self)
 
 
-class LayaTetrisPolicy:
+class LayaBlocksPolicy:
     def __init__(self, agent, *, guarded=True):
         self.agent = agent
         self.guarded = guarded
@@ -79,7 +79,7 @@ class LayaTetrisPolicy:
             safe = [i for i in range(len(rated)) if rated[i]["height"] <= DANGER_HEIGHT]
             if safe:
                 executed = max(safe, key=lambda i: rated[i]["p_good"])
-        return TetrisDecision(
+        return BlocksDecision(
             candidates=rated,
             proposed=proposed,
             executed=executed,

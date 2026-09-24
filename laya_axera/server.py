@@ -1,11 +1,11 @@
-"""FastAPI web demo: a typed-decision playground and a Laya-driven Snake game."""
+"""FastAPI web demo: a typed-decision playground and Laya-driven games."""
 
 import json
 import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,17 +14,21 @@ from pydantic import BaseModel
 
 from . import __version__
 from .agent import Agent
-from .breakout.game import BreakoutGame
-from .breakout.policy import LayaBreakoutPolicy
-from .flappy.game import FlappyGame
-from .flappy.policy import LayaFlappyPolicy
+from .bird.game import BirdGame
+from .bird.policy import LayaBirdPolicy
+from .blocks.game import BlocksGame
+from .blocks.policy import LayaBlocksPolicy
+from .bricks.game import ACTIONS as BRICK_ACTIONS
+from .bricks.game import BricksGame
+from .bricks.policy import LayaBricksPolicy
+from .snake.game import DIRECTIONS as SNAKE_DIRECTIONS
 from .snake.game import SnakeGame
 from .snake.policy import LayaPolicy
-from .tetris.game import TetrisGame
-from .tetris.policy import LayaTetrisPolicy
+from .tank.policy import LayaTankPolicy
 
 WEB_DIR = Path(__file__).parent / "web"
-MAX_SNAKE_SESSIONS = 16
+MAX_SESSIONS = 16
+BIRD_ACTIONS = ("up", "down")
 
 
 class ModelRegistry:
@@ -112,27 +116,87 @@ class SnakeNewBody(BaseModel):
     prompt: str = "compact"
 
 
-class SnakeStepBody(BaseModel):
-    session: str
-
-
-class FlappyNewBody(BaseModel):
+class GameNewBody(BaseModel):
     model: Optional[str] = None
     seed: Optional[int] = None
     guarded: bool = True
 
 
-class TetrisPlaceBody(BaseModel):
+class GameStepBody(BaseModel):
+    session: str
+    # Manual mode: the player's action is executed; the model still decides so
+    # the page can show what it would have done.
+    action: Optional[str] = None
+
+
+class BlocksPlaceBody(BaseModel):
     session: str
     rotation: int
     col: int
 
 
+class TankDecideBody(BaseModel):
+    model: Optional[str] = None
+    grid: List[List[int]]
+    ai: Dict[str, Any]
+    player: Dict[str, Any]
+    bullets: List[Dict[str, Any]] = []
+
+
+class Sessions:
+    """A bounded, thread-safe table of live games; the oldest is evicted first."""
+
+    def __init__(self, kind: str):
+        self.kind = kind
+        self._items: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+
+    def add(self, game, policy, stats) -> str:
+        sid = uuid.uuid4().hex[:12]
+        with self._lock:
+            while len(self._items) >= MAX_SESSIONS:
+                oldest = min(self._items, key=lambda s: self._items[s]["created"])
+                del self._items[oldest]
+            self._items[sid] = {
+                "game": game,
+                "policy": policy,
+                "created": time.time(),
+                "stats": stats,
+            }
+        return sid
+
+    def get(self, sid: str):
+        with self._lock:
+            entry = self._items.get(sid)
+        if entry is None:
+            raise HTTPException(404, f"Unknown or expired {self.kind} session")
+        return entry["game"], entry["policy"], entry["stats"]
+
+
+def _seed(value: Optional[int]) -> int:
+    return value if value is not None else int(time.time() * 1000) % 100000
+
+
+def _decide(policy, game):
+    try:
+        return policy.decide(game)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(500, str(exc))
+
+
+def _chosen(decision, manual: Optional[str], allowed, stats) -> str:
+    """The action to execute: the player's in manual mode, otherwise the model's."""
+    if manual is None:
+        stats["interventions"] += int(decision.intervened)
+        return decision.executed
+    if manual not in allowed:
+        raise HTTPException(400, f"action must be one of {list(allowed)}")
+    stats["matches"] = stats.get("matches", 0) + int(manual == decision.executed)
+    return manual
+
+
 def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> FastAPI:
     registry = ModelRegistry(checkpoints, device_id, provider)
-    sessions: Dict[str, Dict[str, Any]] = {}
-    sessions_lock = threading.Lock()
-
     app = FastAPI(title="laya-axera", version=__version__)
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
@@ -167,133 +231,91 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
         except (ValueError, FloatingPointError) as exc:
             raise HTTPException(400, str(exc))
 
+    # ---- snake ----
+    snake = Sessions("snake")
+
     @app.post("/api/snake/new")
     def snake_new(body: SnakeNewBody):
         agent = registry.get(body.model)
-        seed = body.seed if body.seed is not None else int(time.time() * 1000) % 100000
+        seed = _seed(body.seed)
         try:
             game = SnakeGame(width=body.width, height=body.height, seed=seed)
             policy = LayaPolicy(agent, guarded=body.guarded, prompt=body.prompt)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
-        sid = uuid.uuid4().hex[:12]
-        with sessions_lock:
-            while len(sessions) >= MAX_SNAKE_SESSIONS:
-                oldest = min(sessions, key=lambda s: sessions[s]["created"])
-                del sessions[oldest]
-            sessions[sid] = {
-                "game": game,
-                "policy": policy,
-                "created": time.time(),
-                "stats": {"moves": 0, "interventions": 0, "inference_ms_total": 0.0},
-            }
-        return {"session": sid, "seed": seed, "state": game.snapshot()}
+        stats = {"moves": 0, "interventions": 0, "inference_ms_total": 0.0}
+        return {"session": snake.add(game, policy, stats), "seed": seed, "state": game.snapshot()}
 
     @app.post("/api/snake/step")
-    def snake_step(body: SnakeStepBody):
-        with sessions_lock:
-            entry = sessions.get(body.session)
-        if entry is None:
-            raise HTTPException(404, "Unknown or expired snake session")
-        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+    def snake_step(body: GameStepBody):
+        game, policy, stats = snake.get(body.session)
         if not game.alive or game.won:
             return {"state": game.snapshot(), "stats": stats, "done": True}
-        try:
-            decision = policy.decide(game)
-        except (RuntimeError, ValueError) as exc:
-            raise HTTPException(500, str(exc))
-        game.step(decision.executed)
+        decision = _decide(policy, game)
+        action = _chosen(decision, body.action, SNAKE_DIRECTIONS, stats)
+        game.step(action)
         stats["moves"] += 1
-        stats["interventions"] += int(decision.intervened)
         stats["inference_ms_total"] += decision.inference_ms
         return {
             "decision": decision.to_dict(),
+            "executed": action,
+            "manual": body.action is not None,
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive or game.won,
         }
 
-    flappy_sessions: Dict[str, Dict[str, Any]] = {}
+    # ---- bird ----
+    bird = Sessions("bird")
 
-    @app.post("/api/flappy/new")
-    def flappy_new(body: FlappyNewBody):
+    @app.post("/api/bird/new")
+    def bird_new(body: GameNewBody):
         agent = registry.get(body.model)
-        seed = body.seed if body.seed is not None else int(time.time() * 1000) % 100000
-        game = FlappyGame(seed=seed)
-        policy = LayaFlappyPolicy(agent, guarded=body.guarded)
-        sid = uuid.uuid4().hex[:12]
-        with sessions_lock:
-            while len(flappy_sessions) >= MAX_SNAKE_SESSIONS:
-                oldest = min(flappy_sessions, key=lambda s: flappy_sessions[s]["created"])
-                del flappy_sessions[oldest]
-            flappy_sessions[sid] = {
-                "game": game,
-                "policy": policy,
-                "created": time.time(),
-                "stats": {"steps": 0, "flaps": 0, "interventions": 0, "inference_ms_total": 0.0},
-            }
+        seed = _seed(body.seed)
+        game = BirdGame(seed=seed)
+        stats = {"steps": 0, "flaps": 0, "interventions": 0, "inference_ms_total": 0.0}
+        sid = bird.add(game, LayaBirdPolicy(agent, guarded=body.guarded), stats)
         return {"session": sid, "seed": seed, "state": game.snapshot()}
 
-    @app.post("/api/flappy/step")
-    def flappy_step(body: SnakeStepBody):
-        with sessions_lock:
-            entry = flappy_sessions.get(body.session)
-        if entry is None:
-            raise HTTPException(404, "Unknown or expired flappy session")
-        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+    @app.post("/api/bird/step")
+    def bird_step(body: GameStepBody):
+        game, policy, stats = bird.get(body.session)
         if not game.alive:
             return {"state": game.snapshot(), "stats": stats, "done": True}
-        try:
-            decision = policy.decide(game)
-        except (RuntimeError, ValueError) as exc:
-            raise HTTPException(500, str(exc))
-        game.step(decision.executed == "up")
+        decision = _decide(policy, game)
+        action = _chosen(decision, body.action, BIRD_ACTIONS, stats)
+        game.step(action == "up")
         stats["steps"] += 1
-        stats["flaps"] += int(decision.executed == "up")
-        stats["interventions"] += int(decision.intervened)
+        stats["flaps"] += int(action == "up")
         stats["inference_ms_total"] += decision.inference_ms
         return {
             "decision": decision.to_dict(),
+            "executed": action,
+            "manual": body.action is not None,
             "trail": game.trail,
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive,
         }
 
-    tetris_sessions: Dict[str, Dict[str, Any]] = {}
+    # ---- falling blocks ----
+    blocks = Sessions("blocks")
 
-    @app.post("/api/tetris/new")
-    def tetris_new(body: FlappyNewBody):
+    @app.post("/api/blocks/new")
+    def blocks_new(body: GameNewBody):
         agent = registry.get(body.model)
-        seed = body.seed if body.seed is not None else int(time.time() * 1000) % 100000
-        game = TetrisGame(seed=seed)
-        policy = LayaTetrisPolicy(agent, guarded=body.guarded)
-        sid = uuid.uuid4().hex[:12]
-        with sessions_lock:
-            while len(tetris_sessions) >= MAX_SNAKE_SESSIONS:
-                oldest = min(tetris_sessions, key=lambda s: tetris_sessions[s]["created"])
-                del tetris_sessions[oldest]
-            tetris_sessions[sid] = {
-                "game": game,
-                "policy": policy,
-                "created": time.time(),
-                "stats": {"pieces": 0, "interventions": 0, "inference_ms_total": 0.0},
-            }
+        seed = _seed(body.seed)
+        game = BlocksGame(seed=seed)
+        stats = {"pieces": 0, "interventions": 0, "inference_ms_total": 0.0}
+        sid = blocks.add(game, LayaBlocksPolicy(agent, guarded=body.guarded), stats)
         return {"session": sid, "seed": seed, "state": game.snapshot()}
 
-    @app.post("/api/tetris/step")
-    def tetris_step(body: SnakeStepBody):
-        with sessions_lock:
-            entry = tetris_sessions.get(body.session)
-        if entry is None:
-            raise HTTPException(404, "Unknown or expired tetris session")
-        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+    @app.post("/api/blocks/step")
+    def blocks_step(body: GameStepBody):
+        game, policy, stats = blocks.get(body.session)
         if not game.alive:
             return {"state": game.snapshot(), "stats": stats, "done": True}
-        try:
-            decision = policy.decide(game)
-        except (RuntimeError, ValueError) as exc:
-            raise HTTPException(500, str(exc))
+        decision = _decide(policy, game)
         game.apply(decision.candidates[decision.executed])
         stats["pieces"] += 1
         stats["interventions"] += int(decision.intervened)
@@ -305,14 +327,10 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
             "done": not game.alive,
         }
 
-    @app.post("/api/tetris/place")
-    def tetris_place(body: TetrisPlaceBody):
+    @app.post("/api/blocks/place")
+    def blocks_place(body: BlocksPlaceBody):
         """Manual mode: the player places, the model rates the move and shows its own pick."""
-        with sessions_lock:
-            entry = tetris_sessions.get(body.session)
-        if entry is None:
-            raise HTTPException(404, "Unknown or expired tetris session")
-        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+        game, policy, stats = blocks.get(body.session)
         if not game.alive:
             return {"state": game.snapshot(), "stats": stats, "done": True}
         user_cand = game.evaluate(body.rotation, body.col)
@@ -340,51 +358,46 @@ def create_app(checkpoints: Dict[str, Path], *, device_id=0, provider=None) -> F
             "done": not game.alive,
         }
 
-    breakout_sessions: Dict[str, Dict[str, Any]] = {}
+    # ---- bricks ----
+    bricks = Sessions("bricks")
 
-    @app.post("/api/breakout/new")
-    def breakout_new(body: FlappyNewBody):
+    @app.post("/api/bricks/new")
+    def bricks_new(body: GameNewBody):
         agent = registry.get(body.model)
-        seed = body.seed if body.seed is not None else int(time.time() * 1000) % 100000
-        game = BreakoutGame(seed=seed)
-        policy = LayaBreakoutPolicy(agent, guarded=body.guarded)
-        sid = uuid.uuid4().hex[:12]
-        with sessions_lock:
-            while len(breakout_sessions) >= MAX_SNAKE_SESSIONS:
-                oldest = min(breakout_sessions, key=lambda s: breakout_sessions[s]["created"])
-                del breakout_sessions[oldest]
-            breakout_sessions[sid] = {
-                "game": game,
-                "policy": policy,
-                "created": time.time(),
-                "stats": {"steps": 0, "interventions": 0, "inference_ms_total": 0.0},
-            }
+        seed = _seed(body.seed)
+        game = BricksGame(seed=seed)
+        stats = {"steps": 0, "interventions": 0, "inference_ms_total": 0.0}
+        sid = bricks.add(game, LayaBricksPolicy(agent, guarded=body.guarded), stats)
         return {"session": sid, "seed": seed, "state": game.snapshot()}
 
-    @app.post("/api/breakout/step")
-    def breakout_step(body: SnakeStepBody):
-        with sessions_lock:
-            entry = breakout_sessions.get(body.session)
-        if entry is None:
-            raise HTTPException(404, "Unknown or expired breakout session")
-        game, policy, stats = entry["game"], entry["policy"], entry["stats"]
+    @app.post("/api/bricks/step")
+    def bricks_step(body: GameStepBody):
+        game, policy, stats = bricks.get(body.session)
         if not game.alive or game.won:
             return {"state": game.snapshot(), "stats": stats, "done": True}
-        try:
-            decision = policy.decide(game)
-        except (RuntimeError, ValueError) as exc:
-            raise HTTPException(500, str(exc))
-        game.step(decision.executed)
+        decision = _decide(policy, game)
+        action = _chosen(decision, body.action, BRICK_ACTIONS, stats)
+        game.step(action)
         stats["steps"] += 1
-        stats["interventions"] += int(decision.intervened)
         stats["inference_ms_total"] += decision.inference_ms
         return {
             "decision": decision.to_dict(),
+            "executed": action,
+            "manual": body.action is not None,
             "trail": game.trail,
             "state": game.snapshot(),
             "stats": stats,
             "done": not game.alive or game.won,
         }
+
+    # ---- tank duel: the page runs the arena, the server only picks the AI's move ----
+    @app.post("/api/tank/decide")
+    def tank_decide(body: TankDecideBody):
+        policy = LayaTankPolicy(registry.get(body.model))
+        try:
+            return policy.decide(body.grid, body.ai, body.player, body.bullets)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
 
     if WEB_DIR.is_dir():
         app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

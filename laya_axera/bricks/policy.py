@@ -1,7 +1,7 @@
 """One Laya question per decision step: move the paddle left, right, or hold.
 
 The wording is probe-selected on the multilingual checkpoint and is the same
-three-tier scheme the Flappy Bird policy uses (see NOTICE): neutral action
+three-tier scheme the bird policy uses (see NOTICE): neutral action
 labels, a constant minimal state, and the planner's verdict carried entirely by
 the option descriptions. Probed over every rotation of which action is best,
 the three-way choice picks the intended action with 0.62-0.78 probability.
@@ -21,7 +21,7 @@ INSTRUCTIONS = "Choose the best safe action."
 
 
 @dataclass
-class BreakoutDecision:
+class BricksDecision:
     probabilities: dict
     proposed: str
     executed: str
@@ -37,7 +37,7 @@ class BreakoutDecision:
         return asdict(self)
 
 
-class LayaBreakoutPolicy:
+class LayaBricksPolicy:
     def __init__(self, agent, *, guarded=True):
         self.agent = agent
         self.guarded = guarded
@@ -73,7 +73,7 @@ class LayaBreakoutPolicy:
             rescues = [a for a in ACTIONS if not plan["options"][a]["fatal"]]
             if rescues:
                 executed = min(rescues, key=lambda a: plan["options"][a]["error"])
-        return BreakoutDecision(
+        return BricksDecision(
             probabilities=probabilities,
             proposed=proposed,
             executed=executed,

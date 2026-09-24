@@ -1,4 +1,4 @@
-"""Deterministic Tetris rules with drop-from-top placement enumeration.
+"""Deterministic falling-block rules with drop-from-top placement enumeration.
 
 One decision step places a whole piece: the game enumerates every reachable
 (rotation, column) drop of the current piece, scores each with classic
@@ -7,7 +7,7 @@ heuristics, and exposes a shortlist of distinct candidates for the policy.
 
 import random
 
-WIDTH, HEIGHT = 10, 20
+WIDTH, HEIGHT = 12, 20
 SHORTLIST = 4
 DANGER_HEIGHT = 15  # stacks above this are the "fatal" tier for the shield
 
@@ -61,7 +61,7 @@ def _count_holes(board):
     return holes
 
 
-class TetrisGame:
+class BlocksGame:
     def __init__(self, seed=7):
         self.seed = seed
         self.rng = random.Random(seed)

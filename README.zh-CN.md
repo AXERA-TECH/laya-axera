@@ -4,7 +4,7 @@
 
 基于 [PyAXEngine](https://github.com/AXERA-TECH/pyaxengine) 推理
 [AXERA-TECH/Laya](https://huggingface.co/AXERA-TECH/Laya) 的 AXModel checkpoint，
-并提供网页演示：决策台 + 每一步都由 Laya 实时决策的贪吃蛇。
+并提供网页演示：一个决策台和五个小游戏，其中一个可以和 AI 对战。
 
 单张 AX8850（AXCL）上 multilingual checkpoint **约 31 ms/问题**，**0 个输出 token**。
 不依赖 PyTorch / Transformers 运行时 / 云端 API —— 分词用 Hugging Face Rust tokenizer，
@@ -105,46 +105,51 @@ laya-axera serve --root models/Laya --port 8010
 
 ## 网页演示
 
-`laya-axera serve` 提供五个视图和一套 JSON 接口，共用同一份驻留 checkpoint：
+`laya-axera serve` 提供六个页面和一套 JSON 接口，共用同一份驻留的 checkpoint。每个游戏都可以
+交给 AI 玩，也可以切到「手动」自己玩：键盘用方向键或 WASD，空格执行动作，也可以点页面上的按钮。
+手动模式下 AI 仍然每步都在做判断，页面会显示你和它是否选得一样。
 
-- **决策台** —— 编辑 state 和 questions，提交到 NPU，以概率条形式查看答案与逐问题延迟；
-  一键载入所选 checkpoint 的板端验证示例。
-- **打方块** —— 规划器预测球在挡板行的落点，描述左移/右移/不动三个动作的后果，模型每步三选一，
-  单问题约 30ms。探测显示三选一在各轮换下均正确（最佳项 0.62-0.78），实测 400 步与规划器 400/400 一致。
-- **Flappy Bird** —— 每步一个二选一决策（拍翅/滑翔），单问题约 30ms：规划器描述两个动作的后果，模型选择，护栏只纠正致命提议。
-- **俄罗斯方块** —— 启发式筛出 4 个候选落点，模型用 noul 对每个独立评分（统一模板中文陈述，
-  探测表明该域下 choice 排序受标签偏置干扰），取 P(好落点) 最高者。每块 4 次推理约 126ms。
-  另有手动模式：◀▶/A/B 亲自落子，模型为你的落点打分并展示它自己的首选，统计一致率。
-- **贪吃蛇** —— laya-mlx 贪吃蛇演示的网页版。每一步向驻留 checkpoint 问三个问题
-  （走向 / 风险 / 食物），确定性的循环安全护栏会纠正不安全的提议并统计每次干预。
-  multilingual + 单张 AXCL AX8850 约 10 步/秒。
+- **决策台**：编辑 state 和 questions，在 NPU 上运行，看每个问题的概率分布和耗时；
+  可一键载入 checkpoint 自带的验证示例。
+- **贪吃蛇**：每步问三个问题（走向 / 风险 / 食物）。确定性的循环护栏会纠正不安全的走法，并统计次数。
+- **飞鸟**：每步一个二选一（拍翅 / 滑翔），穿过高低不一的石柱空隙。
+- **落块**：启发式先挑出 4 个候选落点，模型用 `noul` 对每个单独打分，放在分数最高的位置。
+- **打方块**：每步在左移 / 右移 / 不动之间三选一。实测 400 步与规划器 400/400 一致。
+- **坦克对决**：你和 AI 实时对战。战场在浏览器里运行，只有 AI 的每一步来自 `/api/tank/decide`。
+  难度（简单 / 困难 / 地狱）限制 AI 的决策频率（每 900 / 450 / 220 ms 一次）以及移动和射击速度。
 
-接口：`GET /api/info`、`GET /api/samples/{name}`、`POST /api/predict`、
-`POST /api/snake/new`、`POST /api/snake/step`，以及 flappy / tetris / breakout 的
-`new` 与 `step`（俄罗斯方块另有手动模式的 `POST /api/tetris/place`）。
+各游戏的提示措辞都经过模型概率实测选定。坦克对决的选项用罗盘方向（north / south / west /
+east）：`right` 在英文里同时有「正确」的意思，会把概率吸到自己身上，`fire` 也一样，所以开火
+被做成某个方向的一种执行方式。状态句固定、选项描述只有四档，整个输入空间一共 108 种组合，
+已经全部在 NPU 上跑过，模型在每一种情况下都会执行规划器给出的最佳动作。
 
-每个游戏侧栏都有一排置灰的操作按钮，会随模型实际执行的动作点亮；游戏循环回放的是服务端
-真实跑过的物理帧。
+接口：`GET /api/info`、`GET /api/samples/{name}`、`POST /api/predict`，
+`POST /api/{snake,bird,blocks,bricks}/new`，`POST /api/{snake,bird,bricks}/step`（带 `action`
+即为手动操作），`POST /api/blocks/step`、`POST /api/blocks/place`，以及 `POST /api/tank/decide`。
 
-**决策台** —— 一条工单，四个类型化问题
+**决策台**
 
 ![决策台](docs/playground.png)
 
-**贪吃蛇** —— 每步三个问题
+**贪吃蛇**
 
 ![贪吃蛇](docs/snake.png)
 
-**Flappy Bird** —— 每步一个二选一决策
+**飞鸟**
 
-![Flappy Bird](docs/flappy.png)
+![飞鸟](docs/bird.png)
 
-**俄罗斯方块** —— 四个候选落点独立评分
+**落块**
 
-![俄罗斯方块](docs/tetris.png)
+![落块](docs/blocks.png)
 
-**打方块** —— 左移 / 右移 / 不动，每步一问
+**打方块**
 
-![打方块](docs/breakout.png)
+![打方块](docs/bricks.png)
+
+**坦克对决**
+
+![坦克对决](docs/tank.png)
 
 ## 与板端验证输出的一致性
 
@@ -153,7 +158,8 @@ laya-axera serve --root models/Laya --port 8010
 urgency 1.9359、refund 0.9925、churn 0.9400）。
 
 ```bash
-pytest tests/test_common.py                                   # 无需硬件
+pytest tests/test_common.py tests/test_tank_planner.py       # 无需硬件
+node tests/js/tank_sim.test.js                                # 坦克对决的对战模拟
 LAYA_AXERA_MODEL_DIR=models/Laya/multilingual pytest tests/   # 在 NPU 上
 ```
 

@@ -4,248 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Laya on AXERA</title>
-<style>
-:root {
-  color-scheme: light;
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-3: #898781;
-  --grid: #e1e0d9;
-  --border: rgba(11, 11, 11, 0.10);
-  --blue: #2a78d6;
-  --blue-soft: rgba(42, 120, 214, 0.16);
-  --orange: #eb6834;
-  --wing-back: #9c3d17;
-  --wing-front: #f2b25e;
-  --aqua: #1baf7a;
-  --good: #006300;
-  --critical: #d03b3b;
-  --board: #f0efec;
-}
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-    --page: #0d0d0d;
-    --surface: #1a1a19;
-    --ink: #ffffff;
-    --ink-2: #c3c2b7;
-    --ink-3: #898781;
-    --grid: #2c2c2a;
-    --border: rgba(255, 255, 255, 0.10);
-    --blue: #3987e5;
-    --blue-soft: rgba(57, 135, 229, 0.22);
-    --orange: #d95926;
-    --wing-back: #8f3714;
-    --wing-front: #e9a54b;
-    --aqua: #199e70;
-    --good: #0ca30c;
-    --critical: #d03b3b;
-    --board: #131312;
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --ink: #ffffff;
-  --ink-2: #c3c2b7;
-  --ink-3: #898781;
-  --grid: #2c2c2a;
-  --border: rgba(255, 255, 255, 0.10);
-  --blue: #3987e5;
-  --blue-soft: rgba(57, 135, 229, 0.22);
-  --orange: #d95926;
-  --wing-back: #8f3714;
-  --wing-front: #e9a54b;
-  --aqua: #199e70;
-  --good: #0ca30c;
-  --critical: #d03b3b;
-  --board: #131312;
-}
-
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--page);
-  color: var(--ink);
-  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
-}
-.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
-
-header {
-  display: flex;
-  align-items: baseline;
-  gap: 28px;
-  padding: 18px 24px 14px;
-  border-bottom: 1px solid var(--grid);
-  flex-wrap: wrap;
-}
-.brand { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
-.brand small { font-weight: 400; color: var(--ink-3); font-size: 13px; margin-left: 10px; }
-nav { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
-nav button {
-  border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 14px;
-  padding: 4px 14px; border-radius: 4px; cursor: pointer;
-}
-nav button.active { background: var(--blue-soft); color: var(--ink); font-weight: 600; }
-#engine { margin-left: auto; color: var(--ink-3); font-size: 13px; }
-.theme-btn {
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
-  border-radius: 6px; padding: 2px 10px; font: inherit; font-size: 14px; cursor: pointer;
-}
-#engine b { color: var(--ink-2); font-weight: 600; }
-
-main { max-width: 1180px; margin: 0 auto; padding: 20px 24px 60px; }
-section[hidden] { display: none; }
-
-/* ---- checkpoint chips ---- */
-.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
-.chip {
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
-  font: inherit; font-size: 14px; padding: 5px 14px; border-radius: 999px; cursor: pointer;
-}
-.chip.active { border-color: var(--blue); color: var(--ink); font-weight: 600; }
-.chip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); margin-right: 7px; vertical-align: 1px; }
-.chip.ready .dot { background: var(--good); }
-.chip.loading .dot { background: var(--orange); }
-
-/* ---- decisions view ---- */
-.decide-grid { display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; gap: 32px; }
-.composer label { display: block; font-size: 13px; color: var(--ink-3); margin: 14px 0 5px; }
-.composer label:first-of-type { margin-top: 0; }
-textarea {
-  width: 100%; background: var(--surface); color: var(--ink);
-  border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;
-  font-size: 13.5px; line-height: 1.5; resize: vertical;
-}
-textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 2px solid var(--blue); outline-offset: 1px;
-}
-#state { min-height: 88px; }
-#questions { min-height: 260px; }
-.composer .actions { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
-.btn {
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
-  font: inherit; font-size: 14px; padding: 7px 16px; border-radius: 6px; cursor: pointer;
-}
-.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
-.btn:disabled { opacity: 0.55; cursor: default; }
-.error {
-  color: var(--critical); font-size: 13.5px; margin-top: 12px; white-space: pre-wrap;
-}
-
-.results .placeholder { color: var(--ink-3); padding-top: 6px; }
-.answer { border-top: 1px solid var(--grid); padding: 16px 0 18px; }
-.answer:first-child { border-top: 0; padding-top: 2px; }
-.answer h3 { margin: 0 0 2px; font-size: 15px; font-weight: 650; }
-.answer h3 .qtype { color: var(--ink-3); font-weight: 400; font-size: 13px; margin-left: 8px; }
-.answer .instructions { color: var(--ink-2); font-size: 13.5px; margin: 0 0 12px; }
-
-.bar-row { display: grid; grid-template-columns: minmax(90px, 220px) 1fr 56px; gap: 12px; align-items: center; padding: 3px 0; }
-.bar-row .opt { font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar-row.chosen .opt { color: var(--ink); font-weight: 650; }
-.bar-row .track { display: block; height: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-.bar-row .fill { display: block; height: 100%; width: 0; background: var(--blue); border-radius: 3px; transition: width 0.35s ease; }
-.bar-row.chosen .fill { background: var(--blue); }
-.bar-row:not(.chosen) .fill { opacity: 0.45; }
-.bar-row .val { font-size: 13px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
-.bar-row.chosen .val { color: var(--ink); font-weight: 650; }
-@media (prefers-reduced-motion: reduce) { .bar-row .fill { transition: none; } }
-
-.score-line { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 10px; }
-.score-line .num { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.score-line .of { color: var(--ink-3); font-size: 13px; }
-
-.answer .meta { color: var(--ink-3); font-size: 12.5px; margin-top: 10px; font-variant-numeric: tabular-nums; }
-.total-strip {
-  border-top: 1px solid var(--grid); padding-top: 14px; color: var(--ink-2);
-  font-size: 13.5px; font-variant-numeric: tabular-nums;
-}
-
-/* ---- breakout view ---- */
-#bboard { width: 100%; display: block; background: var(--board); border: 1px solid var(--border); border-radius: 6px; }
-
-/* ---- tetris view ---- */
-#tboard { width: 310px; max-width: 100%; margin: 0 auto; display: block; background: var(--board); border: 1px solid var(--border); border-radius: 6px; }
-.t-cand { display: grid; grid-template-columns: 162px 1fr 52px; gap: 10px; align-items: center; padding: 4px 0; }
-.t-cand .opt { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.t-cand.chosen .opt { color: var(--ink); font-weight: 650; }
-.t-cand .track { display: block; height: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-.t-cand .fill { display: block; height: 100%; width: 0; background: var(--blue); border-radius: 3px; transition: width 0.3s ease; }
-.t-cand:not(.chosen) .fill { opacity: 0.45; }
-.t-cand .val { font-size: 12.5px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
-.t-cand.chosen .val { color: var(--ink); font-weight: 650; }
-.t-cands-label { font-size: 12.5px; color: var(--ink-3); margin-bottom: 4px; }
-.t-cand.pulse { background: var(--blue-soft); border-radius: 4px; }
-.mode-seg { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
-.mode-seg button { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 13.5px; padding: 3px 12px; border-radius: 4px; cursor: pointer; }
-.mode-seg button.active { background: var(--blue-soft); color: var(--ink); font-weight: 600; }
-.dpad { display: flex; gap: 8px; margin: 0 0 14px; }
-.dpad .btn { flex: 1; padding: 10px 0; font-weight: 650; font-size: 15px; transition: transform 0.08s ease, background 0.08s ease; }
-.dpad .btn:disabled { opacity: 0.6; cursor: default; }
-.dpad .btn.pressed { opacity: 1; background: var(--blue); border-color: var(--blue); color: #fff; transform: scale(0.93); }
-
-/* ---- snake view ---- */
-.snake-grid { display: grid; grid-template-columns: minmax(300px, 1fr) 340px; gap: 32px; align-items: start; }
-.board-wrap { position: relative; }
-#board, #fboard {
-  width: 100%; display: block; background: var(--board);
-  border: 1px solid var(--border); border-radius: 6px;
-}
-.overlay {
-  position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px;
-  align-items: center; justify-content: center; text-align: center;
-  background: color-mix(in srgb, var(--page) 72%, transparent);
-  border-radius: 6px; font-size: 17px; font-weight: 650;
-}
-.overlay small { font-weight: 400; color: var(--ink-2); font-size: 13.5px; }
-.overlay[hidden] { display: none; }
-
-.rail .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
-.rail .controls label { font-size: 13px; color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
-.rail select, .rail input[type="range"] { font: inherit; }
-.rail select {
-  background: var(--surface); color: var(--ink); border: 1px solid var(--border);
-  border-radius: 6px; padding: 4px 8px; font-size: 13.5px;
-}
-.dir-rows { margin: 4px 0 14px; }
-.rail .bar-row { grid-template-columns: 64px 1fr 62px; }
-.decision-note { font-size: 13.5px; color: var(--ink-2); min-height: 22px; margin-bottom: 14px; }
-.decision-note .flag { color: var(--critical); font-weight: 650; }
-.gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; margin-bottom: 18px; }
-.gauge .glabel { font-size: 12.5px; color: var(--ink-3); margin-bottom: 3px; }
-.gauge .track { height: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-.gauge .fill { height: 100%; width: 0; background: var(--blue); transition: width 0.3s ease; }
-.gauge .gval { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
-
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 18px; border-top: 1px solid var(--grid); padding-top: 14px; }
-.stat .slabel { font-size: 12px; color: var(--ink-3); }
-.stat .sval { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.stat .sval small { font-size: 12px; color: var(--ink-3); font-weight: 400; }
-
-@media (max-width: 940px) {
-  .decide-grid, .snake-grid { grid-template-columns: 1fr; }
-  main { padding: 16px 16px 48px; }
-  header { padding: 14px 16px 12px; gap: 14px; }
-  #engine { margin-left: 0; width: 100%; }
-}
-</style>
+<link rel="stylesheet" href="app.css?v=5">
 </head>
 <body>
 
 <header>
-  <div class="brand">laya-axera<small>Laya 决策模型 · AXERA NPU 实机推理</small></div>
+  <div class="brand">laya-axera<small>Laya 决策模型演示</small></div>
   <nav>
     <button id="nav-decide" class="active">决策台</button>
     <button id="nav-snake">贪吃蛇</button>
-    <button id="nav-flappy">Flappy Bird</button>
-    <button id="nav-tetris">俄罗斯方块</button>
-    <button id="nav-breakout">打方块</button>
+    <button id="nav-bird">飞鸟</button>
+    <button id="nav-blocks">落块</button>
+    <button id="nav-bricks">打方块</button>
+    <button id="nav-tank">坦克对决</button>
   </nav>
   <div id="engine">连接中…</div>
-  <button id="theme-toggle" class="theme-btn" aria-label="切换深浅色主题" title="切换深浅色主题">☾</button>
+  <button id="theme-toggle" class="theme-btn" aria-label="切换深浅色" title="切换深浅色">☾</button>
 </header>
 
 <main>
@@ -254,18 +28,18 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
   <section id="view-decide">
     <div class="decide-grid">
       <div class="composer">
-        <label for="state">状态 state — 待评估的文本或 JSON 记录</label>
+        <label for="state">状态（state）：要判断的文本或 JSON</label>
         <textarea id="state" class="mono" spellcheck="false"></textarea>
-        <label for="questions">问题 questions — choice / score / noul 决策定义（JSON）</label>
+        <label for="questions">问题（questions）：choice / score / noul，JSON 格式</label>
         <textarea id="questions" class="mono" spellcheck="false"></textarea>
         <div class="actions">
-          <button class="btn primary" id="run">在 NPU 上运行</button>
-          <button class="btn" id="load-sample">载入官方示例</button>
+          <button class="btn primary" id="run">运行</button>
+          <button class="btn" id="load-sample">载入示例</button>
         </div>
         <div class="error" id="decide-error" hidden></div>
       </div>
       <div class="results" id="results">
-        <p class="placeholder">提交一个请求，每个问题的答案、概率分布与 NPU 延迟会显示在这里。</p>
+        <p class="placeholder">运行后，这里显示每个问题的结果和耗时。</p>
       </div>
     </div>
   </section>
@@ -273,16 +47,20 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
   <section id="view-snake" hidden>
     <div class="snake-grid">
       <div class="board-wrap">
-        <canvas id="board" width="960" height="640" aria-label="贪吃蛇棋盘，每一步由 Laya 在 NPU 上实时决策"></canvas>
+        <canvas id="board" width="960" height="640" aria-label="贪吃蛇"></canvas>
         <div class="overlay" id="overlay">
-          <div id="overlay-title">每一步都是一次真实的 NPU 决策</div>
-          <small id="overlay-sub">选择 checkpoint 后点击「新开一局」。multilingual 最快（约 31 ms/问题）。</small>
+          <div id="overlay-title">贪吃蛇</div>
+          <small id="overlay-sub">点「新开一局」由 AI 来走，或者切到「手动」自己玩。</small>
         </div>
       </div>
       <aside class="rail">
         <div class="controls">
           <button class="btn primary" id="snake-new">新开一局</button>
           <button class="btn" id="snake-toggle" disabled>暂停</button>
+          <span class="mode-seg">
+            <button id="s-mode-auto" class="active">AI</button>
+            <button id="s-mode-manual">手动</button>
+          </span>
           <label>速度
             <input type="range" id="speed" min="1" max="11" value="6" aria-label="每秒步数，最右为不限速">
           </label>
@@ -300,16 +78,17 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <button class="btn" id="s-down" aria-label="下" disabled>↓</button>
           <button class="btn" id="s-right" aria-label="右" disabled>→</button>
         </div>
+        <div class="keys" id="s-keys" hidden>键盘：方向键或 WASD</div>
         <div class="dir-rows" id="dir-rows"></div>
-        <div class="decision-note" id="decision-note">模型对四个方向给出概率，护栏只在提议不安全时纠正。</div>
+        <div class="decision-note" id="decision-note">–</div>
         <div class="gauges">
-          <div class="gauge"><div class="glabel">死路风险 dead-end risk</div><div class="track"><div class="fill" id="g-risk"></div></div><div class="gval" id="g-risk-v">–</div></div>
-          <div class="gauge"><div class="glabel">食物可达 food reachable</div><div class="track"><div class="fill" id="g-food"></div></div><div class="gval" id="g-food-v">–</div></div>
+          <div class="gauge"><div class="glabel">死路风险</div><div class="track"><div class="fill" id="g-risk"></div></div><div class="gval" id="g-risk-v">–</div></div>
+          <div class="gauge"><div class="glabel">食物可达</div><div class="track"><div class="fill" id="g-food"></div></div><div class="gval" id="g-food-v">–</div></div>
         </div>
         <div class="stats">
           <div class="stat"><div class="slabel">得分</div><div class="sval" id="s-score">0</div></div>
           <div class="stat"><div class="slabel">步数</div><div class="sval" id="s-moves">0</div></div>
-          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="s-int">0</div></div>
+          <div class="stat"><div class="slabel" id="s-int-label">护栏纠正</div><div class="sval" id="s-int">0</div></div>
           <div class="stat"><div class="slabel">单步推理</div><div class="sval" id="s-inf">–<small> ms</small></div></div>
           <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="s-mps">–<small> 步/s</small></div></div>
           <div class="stat"><div class="slabel">蛇身长度</div><div class="sval" id="s-len">–</div></div>
@@ -319,19 +98,23 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
     </div>
   </section>
 
-  <section id="view-flappy" hidden>
+  <section id="view-bird" hidden>
     <div class="snake-grid">
       <div class="board-wrap">
-        <canvas id="fboard" width="960" height="640" aria-label="Flappy Bird 棋盘，每一步拍翅与否由 Laya 在 NPU 上实时决策"></canvas>
+        <canvas id="fboard" width="960" height="640" aria-label="飞鸟"></canvas>
         <div class="overlay" id="f-overlay">
-          <div id="f-overlay-title">拍翅还是滑翔，每一步都是一次 NPU 决策</div>
-          <small id="f-overlay-sub">规则引擎描述两个动作的后果，模型二选一，单问题约 30ms。</small>
+          <div id="f-overlay-title">飞鸟</div>
+          <small id="f-overlay-sub">穿过石柱之间的空隙。点「新开一局」由 AI 来飞，或者切到「手动」自己飞。</small>
         </div>
       </div>
       <aside class="rail">
         <div class="controls">
-          <button class="btn primary" id="flappy-new">新开一局</button>
-          <button class="btn" id="flappy-toggle" disabled>暂停</button>
+          <button class="btn primary" id="bird-new">新开一局</button>
+          <button class="btn" id="bird-toggle" disabled>暂停</button>
+          <span class="mode-seg">
+            <button id="f-mode-auto" class="active">AI</button>
+            <button id="f-mode-manual">手动</button>
+          </span>
           <label>速度
             <input type="range" id="f-speed" min="1" max="11" value="8" aria-label="每秒决策数，最右为不限速">
           </label>
@@ -341,40 +124,41 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <button class="btn" id="f-up" aria-label="拍翅" disabled>A 拍翅</button>
           <button class="btn" id="f-down" aria-label="滑翔" disabled>■ 滑翔</button>
         </div>
+        <div class="keys" id="f-keys" hidden>键盘：空格 / ↑ / W 拍翅，松开滑翔</div>
         <div class="dir-rows" id="f-rows"></div>
-        <div class="decision-note" id="f-note">模型在「up 拍翅」和「down 滑翔」之间选择，护栏只纠正致命提议。</div>
+        <div class="decision-note" id="f-note">–</div>
         <div class="gauges">
-          <div class="gauge"><div class="glabel">距缝隙中心 gap offset</div><div class="track"><div class="fill" id="f-g-off"></div></div><div class="gval" id="f-g-off-v">–</div></div>
-          <div class="gauge"><div class="glabel">下一根管 next pipe</div><div class="track"><div class="fill" id="f-g-dist"></div></div><div class="gval" id="f-g-dist-v">–</div></div>
+          <div class="gauge"><div class="glabel">离空隙中心</div><div class="track"><div class="fill" id="f-g-off"></div></div><div class="gval" id="f-g-off-v">–</div></div>
+          <div class="gauge"><div class="glabel">下一根石柱</div><div class="track"><div class="fill" id="f-g-dist"></div></div><div class="gval" id="f-g-dist-v">–</div></div>
         </div>
         <div class="stats">
           <div class="stat"><div class="slabel">得分</div><div class="sval" id="f-s-score">0</div></div>
           <div class="stat"><div class="slabel">决策数</div><div class="sval" id="f-s-steps">0</div></div>
-          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="f-s-int">0</div></div>
+          <div class="stat"><div class="slabel" id="f-s-int-label">护栏纠正</div><div class="sval" id="f-s-int">0</div></div>
           <div class="stat"><div class="slabel">单步推理</div><div class="sval" id="f-s-inf">–<small> ms</small></div></div>
           <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="f-s-mps">–<small> 步/s</small></div></div>
           <div class="stat"><div class="slabel">拍翅比例</div><div class="sval" id="f-s-flap">–</div></div>
         </div>
-        <div class="error" id="flappy-error" hidden></div>
+        <div class="error" id="bird-error" hidden></div>
       </aside>
     </div>
   </section>
 
-  <section id="view-tetris" hidden>
+  <section id="view-blocks" hidden>
     <div class="snake-grid">
       <div class="board-wrap">
-        <canvas id="tboard" width="310" height="620" aria-label="俄罗斯方块棋盘，每一块的落点由 Laya 在 NPU 上逐个评分决定"></canvas>
+        <canvas id="tboard" width="372" height="620" aria-label="落块"></canvas>
         <div class="overlay" id="t-overlay">
-          <div id="t-overlay-title">四个候选落点，模型逐个打分</div>
-          <small id="t-overlay-sub">规则引擎筛出候选，Laya 用 noul 判断「这是好落点吗」，取概率最高者。</small>
+          <div id="t-overlay-title">落块</div>
+          <small id="t-overlay-sub">每块方块 AI 挑 4 个候选落点逐个打分，放在分最高的位置。也可以切到「手动」自己放。</small>
         </div>
       </div>
       <aside class="rail">
         <div class="controls">
-          <button class="btn primary" id="tetris-new">新开一局</button>
-          <button class="btn" id="tetris-toggle" disabled>暂停</button>
+          <button class="btn primary" id="blocks-new">新开一局</button>
+          <button class="btn" id="blocks-toggle" disabled>暂停</button>
           <span class="mode-seg">
-            <button id="t-mode-auto" class="active">模型</button>
+            <button id="t-mode-auto" class="active">AI</button>
             <button id="t-mode-manual">手动</button>
           </span>
           <label>速度
@@ -386,37 +170,42 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <button class="btn" id="t-left" aria-label="左移" disabled>◀</button>
           <button class="btn" id="t-right" aria-label="右移" disabled>▶</button>
           <button class="btn" id="t-rotate" disabled>A 旋转</button>
-          <button class="btn" id="t-drop" disabled>B 速降</button>
+          <button class="btn" id="t-drop" disabled>B 落下</button>
         </div>
-        <div class="t-cands-label" id="t-cands-label">候选落点与模型评分 P(好落点)</div>
+        <div class="keys" id="t-keys" hidden>键盘：← → / A D 移动，↑ / W 旋转，空格 / ↓ 落下</div>
+        <div class="t-cands-label" id="t-cands-label">候选落点 · AI 打分</div>
         <div id="t-cands"></div>
-        <div class="decision-note" id="t-note">每块方块：启发式筛 4 个候选，模型逐个 noul 评分，选概率最高的。</div>
+        <div class="decision-note" id="t-note">–</div>
         <div class="stats">
           <div class="stat"><div class="slabel">得分</div><div class="sval" id="t-s-score">0</div></div>
           <div class="stat"><div class="slabel">消行</div><div class="sval" id="t-s-lines">0</div></div>
           <div class="stat"><div class="slabel">方块数</div><div class="sval" id="t-s-pieces">0</div></div>
-          <div class="stat"><div class="slabel" id="t-s-int-label">护栏干预</div><div class="sval" id="t-s-int">0</div></div>
+          <div class="stat"><div class="slabel" id="t-s-int-label">护栏纠正</div><div class="sval" id="t-s-int">0</div></div>
           <div class="stat"><div class="slabel">单块推理</div><div class="sval" id="t-s-inf">–<small> ms</small></div></div>
           <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="t-s-mps">–<small> 块/s</small></div></div>
         </div>
-        <div class="error" id="tetris-error" hidden></div>
+        <div class="error" id="blocks-error" hidden></div>
       </aside>
     </div>
   </section>
 
-  <section id="view-breakout" hidden>
+  <section id="view-bricks" hidden>
     <div class="snake-grid">
       <div class="board-wrap">
-        <canvas id="bboard" width="960" height="768" aria-label="打方块棋盘，挡板每一步的移动由 Laya 在 NPU 上实时决策"></canvas>
+        <canvas id="bboard" width="960" height="768" aria-label="打方块"></canvas>
         <div class="overlay" id="b-overlay">
-          <div id="b-overlay-title">挡板的每一步，都是一次 NPU 决策</div>
-          <small id="b-overlay-sub">规则引擎预测落点并描述三个动作的后果，模型三选一，单问题约 30ms。</small>
+          <div id="b-overlay-title">打方块</div>
+          <small id="b-overlay-sub">点「新开一局」由 AI 接球，或者切到「手动」自己控制挡板。</small>
         </div>
       </div>
       <aside class="rail">
         <div class="controls">
-          <button class="btn primary" id="breakout-new">新开一局</button>
-          <button class="btn" id="breakout-toggle" disabled>暂停</button>
+          <button class="btn primary" id="bricks-new">新开一局</button>
+          <button class="btn" id="bricks-toggle" disabled>暂停</button>
+          <span class="mode-seg">
+            <button id="b-mode-auto" class="active">AI</button>
+            <button id="b-mode-manual">手动</button>
+          </span>
           <label>速度
             <input type="range" id="b-speed" min="1" max="11" value="7" aria-label="每秒决策数，最右为不限速">
           </label>
@@ -427,1349 +216,73 @@ textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-
           <button class="btn" id="b-hold" aria-label="不动" disabled>■</button>
           <button class="btn" id="b-right" aria-label="右移" disabled>▶</button>
         </div>
+        <div class="keys" id="b-keys" hidden>键盘：← → 或 A D 按住移动</div>
         <div class="dir-rows" id="b-rows"></div>
-        <div class="decision-note" id="b-note">模型在「左移 / 右移 / 不动」之间选择，护栏只在必接不到时纠正。</div>
+        <div class="decision-note" id="b-note">–</div>
         <div class="gauges">
-          <div class="gauge"><div class="glabel">落点误差 paddle error</div><div class="track"><div class="fill" id="b-g-err"></div></div><div class="gval" id="b-g-err-v">–</div></div>
-          <div class="gauge"><div class="glabel">剩余砖块 bricks left</div><div class="track"><div class="fill" id="b-g-brick"></div></div><div class="gval" id="b-g-brick-v">–</div></div>
+          <div class="gauge"><div class="glabel">离落点</div><div class="track"><div class="fill" id="b-g-err"></div></div><div class="gval" id="b-g-err-v">–</div></div>
+          <div class="gauge"><div class="glabel">剩余砖块</div><div class="track"><div class="fill" id="b-g-brick"></div></div><div class="gval" id="b-g-brick-v">–</div></div>
         </div>
         <div class="stats">
           <div class="stat"><div class="slabel">得分</div><div class="sval" id="b-s-score">0</div></div>
           <div class="stat"><div class="slabel">决策数</div><div class="sval" id="b-s-steps">0</div></div>
           <div class="stat"><div class="slabel">生命</div><div class="sval" id="b-s-lives">3</div></div>
-          <div class="stat"><div class="slabel">护栏干预</div><div class="sval" id="b-s-int">0</div></div>
+          <div class="stat"><div class="slabel" id="b-s-int-label">护栏纠正</div><div class="sval" id="b-s-int">0</div></div>
           <div class="stat"><div class="slabel">单步推理</div><div class="sval" id="b-s-inf">–<small> ms</small></div></div>
           <div class="stat"><div class="slabel">实际速度</div><div class="sval" id="b-s-sps">–<small> 步/s</small></div></div>
         </div>
-        <div class="error" id="breakout-error" hidden></div>
+        <div class="error" id="bricks-error" hidden></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="view-tank" hidden>
+    <div class="snake-grid">
+      <div class="board-wrap">
+        <canvas id="kboard" width="780" height="780" aria-label="坦克对决"></canvas>
+        <div class="overlay" id="k-overlay">
+          <div id="k-overlay-title">坦克对决</div>
+          <small id="k-overlay-sub">你开蓝色坦克，对面由 AI 驾驶。方向键 / WASD 移动，空格 / J 开火。</small>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="controls">
+          <button class="btn primary" id="tank-new">开始对战</button>
+          <button class="btn" id="tank-toggle" disabled>暂停</button>
+          <span class="mode-seg" id="k-level">
+            <button data-level="easy" class="active">简单</button>
+            <button data-level="hard">困难</button>
+            <button data-level="hell">地狱</button>
+          </span>
+        </div>
+        <div class="scoreline">
+          <div class="side"><span class="who you">你</span><span class="hearts" id="k-you-lives">♥♥♥</span></div>
+          <div class="side right"><span class="hearts" id="k-ai-lives">♥♥♥</span><span class="who ai">AI</span></div>
+        </div>
+        <div class="keys">键盘：方向键 / WASD 移动，空格 / J 开火</div>
+        <div class="rail-cap">AI 的操作</div>
+        <div class="dpad" id="k-dpad">
+          <button class="btn" id="k-west" aria-label="左" disabled>←</button>
+          <button class="btn" id="k-north" aria-label="上" disabled>↑</button>
+          <button class="btn" id="k-south" aria-label="下" disabled>↓</button>
+          <button class="btn" id="k-east" aria-label="右" disabled>→</button>
+          <button class="btn" id="k-fire" aria-label="开火" disabled>开火</button>
+        </div>
+        <div class="dir-rows" id="k-rows"></div>
+        <div class="decision-note" id="k-note">–</div>
+        <div class="stats">
+          <div class="stat"><div class="slabel">AI 决策</div><div class="sval" id="k-s-dec">0</div></div>
+          <div class="stat"><div class="slabel">单次推理</div><div class="sval" id="k-s-inf">–<small> ms</small></div></div>
+          <div class="stat"><div class="slabel">决策间隔</div><div class="sval" id="k-s-gap">–<small> ms</small></div></div>
+        </div>
+        <div class="error" id="tank-error" hidden></div>
       </aside>
     </div>
   </section>
 </main>
 
-<script>
-"use strict";
-const $ = (id) => document.getElementById(id);
-const DIRS = ["UP", "DOWN", "LEFT", "RIGHT"];
-const DIR_LABEL = { UP: "↑ 上", DOWN: "↓ 下", LEFT: "← 左", RIGHT: "→ 右" };
-
-const state = {
-  models: [],
-  current: null,
-  snake: null, // {session, playing, gen, lastTick}
-};
-
-const pct = (v) => (v * 100).toFixed(1) + "%";
-
-async function api(path, body) {
-  const res = await fetch(path, body === undefined ? {} : {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || res.status + " " + res.statusText);
-  return data;
-}
-
-/* ---------- header + checkpoints ---------- */
-
-async function refreshInfo(silent) {
-  try {
-    const info = await api("/api/info");
-    state.models = info.models;
-    if (!state.current) state.current = info.default_model;
-    const ready = info.models.find((m) => m.name === state.current && m.status === "ready");
-    $("engine").innerHTML = ready
-      ? `<b>${ready.model_name}</b> 已驻留 &nbsp; ${ready.provider === "AXCLRTExecutionProvider" ? "AXCL 卡 " + ready.device_id : "AX8850 片上"} &nbsp; laya-axera ${info.version}`
-      : `laya-axera ${info.version}`;
-    renderChips();
-  } catch (err) {
-    if (!silent) $("engine").textContent = "服务不可达：" + err.message;
-  }
-}
-
-function renderChips() {
-  const box = $("chips");
-  box.innerHTML = "";
-  for (const m of state.models) {
-    const b = document.createElement("button");
-    b.className = "chip " + m.status + (m.name === state.current ? " active" : "");
-    b.innerHTML = `<span class="dot"></span>${m.name}`;
-    b.title = { ready: "已加载", loading: "加载中…", unloaded: "首次运行时加载", error: m.error || "加载失败" }[m.status] || "";
-    b.onclick = () => { state.current = m.name; renderChips(); refreshInfo(true); };
-    box.appendChild(b);
-  }
-}
-
-/* ---------- decisions view ---------- */
-
-async function loadSample() {
-  hide("decide-error");
-  try {
-    const req = await api(`/api/samples/${state.current}`);
-    $("state").value = typeof req.state === "string" ? req.state : JSON.stringify(req.state, null, 2);
-    $("questions").value = JSON.stringify(req.questions, null, 2);
-  } catch (err) {
-    showError("decide-error", err.message);
-  }
-}
-
-function parseState(text) {
-  const t = text.trim();
-  if (t.startsWith("{") || t.startsWith("[")) {
-    try { return JSON.parse(t); } catch { return text; }
-  }
-  return text;
-}
-
-async function runPredict() {
-  hide("decide-error");
-  let questions;
-  try {
-    questions = JSON.parse($("questions").value);
-  } catch (err) {
-    return showError("decide-error", "questions 不是合法 JSON：" + err.message);
-  }
-  const btn = $("run");
-  btn.disabled = true;
-  const loaded = state.models.some((m) => m.name === state.current && m.status === "ready");
-  btn.textContent = loaded ? "推理中…" : "加载模型并推理…";
-  try {
-    const result = await api("/api/predict", {
-      model: state.current,
-      state: parseState($("state").value),
-      questions,
-    });
-    renderResults(result, questions);
-  } catch (err) {
-    showError("decide-error", err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "在 NPU 上运行";
-    refreshInfo(true);
-  }
-}
-
-function barRow(label, value, chosen) {
-  const row = document.createElement("div");
-  row.className = "bar-row" + (chosen ? " chosen" : "");
-  row.innerHTML = `<span class="opt" title="${esc(label)}">${chosen ? "✓ " : ""}${esc(label)}</span>
-    <span class="track"><span class="fill"></span></span>
-    <span class="val">${pct(value)}</span>`;
-  requestAnimationFrame(() => { row.querySelector(".fill").style.width = (value * 100).toFixed(2) + "%"; });
-  return row;
-}
-
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
-
-function renderResults(result, questions) {
-  const box = $("results");
-  box.innerHTML = "";
-  for (const [name, a] of Object.entries(result.answers)) {
-    const q = questions[name] || {};
-    const card = document.createElement("div");
-    card.className = "answer";
-    card.innerHTML = `<h3>${esc(name)}<span class="qtype">${a.type}</span></h3>
-      <p class="instructions">${esc(q.instructions || "")}</p>`;
-    if (a.type === "choice") {
-      for (const [label, p] of Object.entries(a.probabilities)) {
-        card.appendChild(barRow(label, p, label === a.choice));
-      }
-    } else if (a.type === "score") {
-      const levels = Object.keys(a.probabilities).length;
-      const line = document.createElement("div");
-      line.className = "score-line";
-      line.innerHTML = `<span class="num">${a.score.toFixed(3)}</span><span class="of">期望分 / 最高 ${levels - 1}</span>`;
-      card.appendChild(line);
-      const best = Object.entries(a.probabilities).reduce((x, y) => (y[1] > x[1] ? y : x))[0];
-      for (const [i, p] of Object.entries(a.probabilities)) {
-        card.appendChild(barRow(`level ${i} — ${a.legend[i]}`, p, i === best));
-      }
-    } else {
-      card.appendChild(barRow("true 成立", a.noul, a.noul >= 0.5));
-      card.appendChild(barRow("false 不成立", 1 - a.noul, a.noul < 0.5));
-    }
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = `置信度 ${a.confidence.toFixed(4)} · act ${a.action.act_probability.toFixed(2)} · NPU ${a.npu_latency_ms.toFixed(1)} ms`;
-    card.appendChild(meta);
-    box.appendChild(card);
-  }
-  const total = document.createElement("div");
-  total.className = "total-strip";
-  total.textContent = `${result.model} 共 ${Object.keys(result.answers).length} 个问题：NPU 累计 ${result.total_npu_latency_ms.toFixed(1)} ms，输入 ${result.usage.input_tokens} tokens`;
-  box.appendChild(total);
-}
-
-/* ---------- snake view ---------- */
-
-function initDirRows() {
-  const box = $("dir-rows");
-  box.innerHTML = "";
-  for (const d of DIRS) {
-    const row = document.createElement("div");
-    row.className = "bar-row";
-    row.id = "dir-" + d;
-    row.innerHTML = `<span class="opt">${DIR_LABEL[d]}</span>
-      <span class="track"><span class="fill"></span></span>
-      <span class="val">–</span>`;
-    box.appendChild(row);
-  }
-}
-
-function updateDirRows(decision) {
-  for (const d of DIRS) {
-    const row = $("dir-" + d);
-    const p = decision ? decision.probabilities[d] : 0;
-    row.classList.toggle("chosen", !!decision && decision.executed === d);
-    row.querySelector(".fill").style.width = (p * 100).toFixed(2) + "%";
-    row.querySelector(".val").textContent = decision ? pct(p) : "–";
-    const opt = row.querySelector(".opt");
-    opt.textContent = (decision && decision.executed === d ? "✓ " : "") + DIR_LABEL[d];
-  }
-  if (decision) pressFx("s-" + decision.executed.toLowerCase());
-  const note = $("decision-note");
-  if (!decision) {
-    note.textContent = "模型对四个方向给出概率，护栏只在提议不安全时纠正。";
-  } else if (decision.intervened) {
-    note.innerHTML = `<span class="flag">护栏干预</span>：模型提议 ${DIR_LABEL[decision.proposed]}（不安全），改走 ${DIR_LABEL[decision.executed]}`;
-  } else {
-    note.textContent = `模型提议 ${DIR_LABEL[decision.proposed]}，与安全集一致，直接执行。`;
-  }
-  $("g-risk").style.width = decision ? (decision.dead_end_risk * 100).toFixed(1) + "%" : "0";
-  $("g-risk-v").textContent = decision ? pct(decision.dead_end_risk) : "–";
-  $("g-food").style.width = decision ? (decision.food_reachable * 100).toFixed(1) + "%" : "0";
-  $("g-food-v").textContent = decision ? pct(decision.food_reachable) : "–";
-}
-
-function drawBoard(snap) {
-  state._snakeSnap = snap;
-  const canvas = $("board");
-  const ctx = canvas.getContext("2d");
-  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
-  const css = getComputedStyle(document.documentElement);
-  ctx.fillStyle = css.getPropertyValue("--board").trim();
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = css.getPropertyValue("--grid").trim();
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 1; x < snap.width; x++) { ctx.moveTo(x * cw, 0); ctx.lineTo(x * cw, canvas.height); }
-  for (let y = 1; y < snap.height; y++) { ctx.moveTo(0, y * ch); ctx.lineTo(canvas.width, y * ch); }
-  ctx.stroke();
-  const blue = css.getPropertyValue("--blue").trim();
-  const pad = Math.max(1.5, cw * 0.08);
-  snap.body.forEach(([x, y], i) => {
-    ctx.fillStyle = blue;
-    ctx.globalAlpha = i === 0 ? 1 : Math.max(0.35, 0.85 - (i / snap.body.length) * 0.5);
-    roundRect(ctx, x * cw + pad, y * ch + pad, cw - 2 * pad, ch - 2 * pad, 4);
-  });
-  ctx.globalAlpha = 1;
-  if (snap.food) {
-    ctx.fillStyle = css.getPropertyValue("--orange").trim();
-    ctx.beginPath();
-    ctx.arc((snap.food[0] + 0.5) * cw, (snap.food[1] + 0.5) * ch, Math.min(cw, ch) * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-  ctx.fill();
-}
-
-function updateStats(snap, stats, decision) {
-  $("s-score").textContent = snap.score;
-  $("s-moves").textContent = stats ? stats.moves : 0;
-  $("s-int").textContent = stats ? stats.interventions : 0;
-  $("s-len").textContent = snap.length;
-  if (decision) $("s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
-  if (state.snake && state.snake.lastTick) {
-    const dt = (performance.now() - state.snake.lastTick) / 1000;
-    if (dt > 0) $("s-mps").innerHTML = (1 / dt).toFixed(1) + "<small> 步/s</small>";
-  }
-}
-
-async function snakeNew() {
-  hide("snake-error");
-  $("snake-new").disabled = true;
-  $("snake-new").textContent = "加载中…";
-  try {
-    const data = await api("/api/snake/new", {
-      model: state.current,
-      guarded: $("guarded").checked,
-      prompt: $("prompt-style").value,
-    });
-    state.snake = { session: data.session, playing: true, gen: (state.snake ? state.snake.gen : 0) + 1, lastTick: 0 };
-    $("overlay").hidden = true;
-    $("snake-toggle").disabled = false;
-    $("snake-toggle").textContent = "暂停";
-    initDirRows();
-    updateDirRows(null);
-    drawBoard(data.state);
-    updateStats(data.state, null, null);
-    refreshInfo(true);
-    loop(state.snake.gen);
-  } catch (err) {
-    showError("snake-error", err.message);
-  } finally {
-    $("snake-new").disabled = false;
-    $("snake-new").textContent = "新开一局";
-  }
-}
-
-async function loop(gen) {
-  const s = state.snake;
-  if (!s || s.gen !== gen || !s.playing) return;
-  const speed = Number($("speed").value);
-  const target = speed >= 11 ? 0 : 1000 / speed;
-  const t0 = performance.now();
-  let data;
-  try {
-    data = await api("/api/snake/step", { session: s.session });
-  } catch (err) {
-    showError("snake-error", err.message);
-    s.playing = false;
-    $("snake-toggle").disabled = true;
-    return;
-  }
-  if (!state.snake || state.snake.gen !== gen) return;
-  if (data.decision) updateDirRows(data.decision);
-  drawBoard(data.state);
-  updateStats(data.state, data.stats, data.decision);
-  s.lastTick = t0;
-  if (data.done) {
-    s.playing = false;
-    $("snake-toggle").disabled = true;
-    const t = $("overlay-title"), sub = $("overlay-sub");
-    if (data.state.won) { t.textContent = "填满棋盘，获胜"; sub.textContent = `得分 ${data.state.score}`; }
-    else {
-      const reason = { wall: "撞墙", body: "撞到蛇身", reverse: "反向移动" }[data.state.death_reason] || data.state.death_reason;
-      t.textContent = "本局结束：" + reason;
-      sub.textContent = `得分 ${data.state.score}，共 ${data.state.ticks} 步。关闭护栏时模型独立决策，撞车属于正常现象。`;
-    }
-    $("overlay").hidden = false;
-    return;
-  }
-  const elapsed = performance.now() - t0;
-  setTimeout(() => loop(gen), Math.max(0, target - elapsed));
-}
-
-function snakeToggle() {
-  const s = state.snake;
-  if (!s) return;
-  s.playing = !s.playing;
-  $("snake-toggle").textContent = s.playing ? "暂停" : "继续";
-  if (s.playing) loop(s.gen);
-}
-
-/* ---------- flappy view ---------- */
-
-const FDIR_LABEL = { up: "↑ 拍翅", down: "↓ 滑翔" };
-let wingPhase = 0;
-
-function initFlappyRows() {
-  const box = $("f-rows");
-  box.innerHTML = "";
-  for (const d of ["up", "down"]) {
-    const row = document.createElement("div");
-    row.className = "bar-row";
-    row.id = "fdir-" + d;
-    row.innerHTML = `<span class="opt">${FDIR_LABEL[d]}</span>
-      <span class="track"><span class="fill"></span></span>
-      <span class="val">–</span>`;
-    box.appendChild(row);
-  }
-}
-
-function updateFlappyPanel(decision) {
-  for (const d of ["up", "down"]) {
-    const row = $("fdir-" + d);
-    const p = decision ? decision.probabilities[d] : 0;
-    row.classList.toggle("chosen", !!decision && decision.executed === d);
-    row.querySelector(".fill").style.width = (p * 100).toFixed(2) + "%";
-    row.querySelector(".val").textContent = decision ? pct(p) : "–";
-    row.querySelector(".opt").textContent =
-      (decision && decision.executed === d ? "✓ " : "") + FDIR_LABEL[d];
-  }
-  if (decision) {
-    pressFx("f-" + decision.executed);
-    state._flappyFlapping = decision.executed === "up";
-  }
-  const note = $("f-note");
-  if (!decision) {
-    note.textContent = "模型在「up 拍翅」和「down 滑翔」之间选择，护栏只纠正致命提议。";
-  } else if (decision.intervened) {
-    note.innerHTML = `<span class="flag">护栏干预</span>：模型提议 ${FDIR_LABEL[decision.proposed]}（致命），改为 ${FDIR_LABEL[decision.executed]}`;
-  } else {
-    note.textContent = `模型选择 ${FDIR_LABEL[decision.executed]}，与规划器${decision.executed === decision.autopilot_best ? "一致" : "不同但安全"}。`;
-  }
-  if (decision) {
-    const off = decision.gap_offset;
-    $("f-g-off").style.width = Math.min(100, Math.abs(off) / 5 * 100).toFixed(1) + "%";
-    $("f-g-off-v").textContent = Math.abs(off).toFixed(1) + " 格" + (off > 0 ? "（偏下）" : "（偏上）");
-    $("f-g-dist").style.width = Math.min(100, decision.pipe_distance / 9 * 100).toFixed(1) + "%";
-    $("f-g-dist-v").textContent = decision.pipe_distance.toFixed(1) + " 格";
-  }
-}
-
-function drawFlappy(snap, frame) {
-  state._flappySnap = snap;
-  state._flappyFrame = frame || null;
-  const birdY = frame ? frame[0] : snap.y;
-  const shift = frame ? frame[1] : 0;
-  const canvas = $("fboard");
-  const ctx = canvas.getContext("2d");
-  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
-  const css = getComputedStyle(document.documentElement);
-  ctx.fillStyle = css.getPropertyValue("--board").trim();
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = css.getPropertyValue("--aqua").trim();
-  const pw = snap.pipe_w * cw;
-  for (const p of snap.pipes) {
-    const x = (p.x + shift) * cw - pw / 2;
-    const g = p.gap != null ? p.gap : snap.gap;
-    const topH = (p.gap_y - g / 2) * ch;
-    const botY = (p.gap_y + g / 2) * ch;
-    ctx.beginPath(); ctx.roundRect(x, -8, pw, topH + 8, 4); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(x, botY, pw, canvas.height - botY + 8, 4); ctx.fill();
-  }
-  const bx = snap.bird_x * cw, by = birdY * ch, br = snap.bird_r * cw * 1.35;
-  // The wing beats fast on a flap step and idles while gliding; raised shows its
-  // back, lowered shows its underside, so the two faces read as different colors.
-  wingPhase += state._flappyFlapping ? 0.62 : 0.17;
-  const beat = Math.sin(wingPhase);
-  ctx.fillStyle = css.getPropertyValue("--orange").trim();
-  ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
-  ctx.save();
-  ctx.translate(bx - br * 0.22, by - beat * br * 0.42);
-  ctx.rotate(-beat * 0.38);
-  ctx.fillStyle = css.getPropertyValue(beat >= 0 ? "--wing-back" : "--wing-front").trim();
-  ctx.beginPath();
-  ctx.ellipse(-br * 0.2, 0, br * 0.78, Math.max(br * 0.14, br * 0.46 * Math.abs(beat)), 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  ctx.fillStyle = css.getPropertyValue("--board").trim();
-  ctx.beginPath(); ctx.arc(bx + br * 0.38, by - br * 0.34, br * 0.19, 0, Math.PI * 2); ctx.fill();
-}
-
-function updateFlappyStats(snap, stats, decision) {
-  $("f-s-score").textContent = snap.score;
-  $("f-s-steps").textContent = stats ? stats.steps : 0;
-  $("f-s-int").textContent = stats ? stats.interventions : 0;
-  if (decision) $("f-s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
-  if (stats && stats.steps > 0) $("f-s-flap").textContent = pct(stats.flaps / stats.steps);
-  const f = state.flappy;
-  if (f && f.lastTick) {
-    const dt = (performance.now() - f.lastTick) / 1000;
-    if (dt > 0) $("f-s-mps").innerHTML = (1 / dt).toFixed(1) + "<small> 步/s</small>";
-  }
-}
-
-async function flappyNew() {
-  hide("flappy-error");
-  $("flappy-new").disabled = true;
-  $("flappy-new").textContent = "加载中…";
-  try {
-    const data = await api("/api/flappy/new", {
-      model: state.current,
-      guarded: $("f-guarded").checked,
-    });
-    state.flappy = { session: data.session, playing: true, gen: (state.flappy ? state.flappy.gen : 0) + 1, lastTick: 0 };
-    $("f-overlay").hidden = true;
-    $("flappy-toggle").disabled = false;
-    $("flappy-toggle").textContent = "暂停";
-    initFlappyRows();
-    updateFlappyPanel(null);
-    drawFlappy(data.state, null);
-    updateFlappyStats(data.state, null, null);
-    refreshInfo(true);
-    flappyLoop(state.flappy.gen);
-  } catch (err) {
-    showError("flappy-error", err.message);
-  } finally {
-    $("flappy-new").disabled = false;
-    $("flappy-new").textContent = "新开一局";
-  }
-}
-
-async function flappyLoop(gen) {
-  const f = state.flappy;
-  if (!f || f.gen !== gen || !f.playing) return;
-  const speed = Number($("f-speed").value);
-  const target = speed >= 11 ? 0 : 1000 / speed;
-  const t0 = performance.now();
-  let data;
-  try {
-    data = await api("/api/flappy/step", { session: f.session });
-  } catch (err) {
-    showError("flappy-error", err.message);
-    f.playing = false;
-    $("flappy-toggle").disabled = true;
-    return;
-  }
-  if (!state.flappy || state.flappy.gen !== gen) return;
-  if (data.decision) updateFlappyPanel(data.decision);
-  updateFlappyStats(data.state, data.stats, data.decision);
-  const remain = Math.max(0, target - (performance.now() - t0));
-  if (data.trail && data.trail.length > 1 && remain >= 40) {
-    await playTrail(data.trail, remain, (fr) => drawFlappy(data.state, fr));
-    if (!state.flappy || state.flappy.gen !== gen) return;
-  }
-  drawFlappy(data.state, null);
-  f.lastTick = t0;
-  if (data.done) {
-    f.playing = false;
-    $("flappy-toggle").disabled = true;
-    const reason = { pipe: "撞上管子", floor: "落地" }[data.state.death_reason] || data.state.death_reason;
-    $("f-overlay-title").textContent = "本局结束：" + reason;
-    $("f-overlay-sub").textContent = `得分 ${data.state.score}，共 ${data.state.steps} 次决策。关闭护栏时模型独立飞行。`;
-    $("f-overlay").hidden = false;
-    return;
-  }
-  const elapsed = performance.now() - t0;
-  setTimeout(() => flappyLoop(gen), Math.max(0, target - elapsed));
-}
-
-function flappyToggle() {
-  const f = state.flappy;
-  if (!f) return;
-  f.playing = !f.playing;
-  $("flappy-toggle").textContent = f.playing ? "暂停" : "继续";
-  if (f.playing) flappyLoop(f.gen);
-}
-
-/* ---------- breakout view ---------- */
-
-const B_ACTS = ["left", "hold", "right"];
-const B_LABEL = { left: "◀ 左移", hold: "■ 不动", right: "▶ 右移" };
-const B_BTN = { left: "b-left", hold: "b-hold", right: "b-right" };
-
-function initBreakoutRows() {
-  const box = $("b-rows");
-  box.innerHTML = "";
-  for (const a of B_ACTS) {
-    const row = document.createElement("div");
-    row.className = "bar-row";
-    row.id = "bact-" + a;
-    row.innerHTML = `<span class="opt">${B_LABEL[a]}</span>
-      <span class="track"><span class="fill"></span></span>
-      <span class="val">–</span>`;
-    box.appendChild(row);
-  }
-}
-
-function updateBreakoutPanel(decision, snap) {
-  for (const a of B_ACTS) {
-    const row = $("bact-" + a);
-    const p = decision ? decision.probabilities[a] : 0;
-    row.classList.toggle("chosen", !!decision && decision.executed === a);
-    row.querySelector(".fill").style.width = (p * 100).toFixed(2) + "%";
-    row.querySelector(".val").textContent = decision ? pct(p) : "–";
-    row.querySelector(".opt").textContent =
-      (decision && decision.executed === a ? "✓ " : "") + B_LABEL[a];
-  }
-  const note = $("b-note");
-  if (!decision) {
-    note.textContent = "模型在「左移 / 右移 / 不动」之间选择，护栏只在必接不到时纠正。";
-  } else if (decision.intervened) {
-    note.innerHTML = `<span class="flag">护栏干预</span>：模型提议 ${B_LABEL[decision.proposed]}（会漏球），改为 ${B_LABEL[decision.executed]}`;
-  } else {
-    note.textContent = `模型选择 ${B_LABEL[decision.executed]}，与规划器${decision.executed === decision.planner_best ? "一致" : "不同但安全"}。`;
-  }
-  if (decision) {
-    pressFx(B_BTN[decision.executed]);
-    $("b-g-err").style.width = Math.min(100, (decision.error / 6) * 100).toFixed(1) + "%";
-    $("b-g-err-v").textContent = decision.error.toFixed(2) + " 格";
-  }
-  if (snap) {
-    const total = snap.bricks_total || snap.bricks_left || 1;
-    $("b-g-brick").style.width = ((snap.bricks_left / total) * 100).toFixed(1) + "%";
-    $("b-g-brick-v").textContent = snap.bricks_left + " / " + total;
-  }
-}
-
-function drawBreakout(snap, frame) {
-  state._breakoutSnap = snap;
-  state._breakoutFrame = frame || null;
-  const ballX = frame ? frame[0] : snap.ball[0];
-  const ballY = frame ? frame[1] : snap.ball[1];
-  const padX = frame ? frame[2] : snap.paddle_x;
-  const canvas = $("bboard");
-  const ctx = canvas.getContext("2d");
-  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
-  const css = getComputedStyle(document.documentElement);
-  const colors = T_COLORS[effectiveTheme()];
-  ctx.fillStyle = css.getPropertyValue("--board").trim();
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  for (const [r, c] of snap.bricks) {
-    ctx.fillStyle = colors[(r - 2) % colors.length];
-    ctx.beginPath();
-    ctx.roundRect(c * snap.brick_w * cw + 2, r * ch + 2, snap.brick_w * cw - 4, ch - 4, 3);
-    ctx.fill();
-  }
-  ctx.fillStyle = css.getPropertyValue("--blue").trim();
-  ctx.beginPath();
-  ctx.roundRect((padX - snap.paddle_w / 2) * cw, snap.paddle_y * ch, snap.paddle_w * cw, ch * 0.45, 4);
-  ctx.fill();
-  ctx.fillStyle = css.getPropertyValue("--orange").trim();
-  ctx.beginPath();
-  ctx.arc(ballX * cw, ballY * ch, snap.ball_r * cw * 1.3, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function updateBreakoutStats(snap, stats, decision) {
-  $("b-s-score").textContent = snap.score;
-  $("b-s-steps").textContent = stats ? stats.steps : 0;
-  $("b-s-lives").textContent = snap.lives;
-  $("b-s-int").textContent = stats ? stats.interventions : 0;
-  if (decision) $("b-s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
-  const b = state.breakout;
-  if (b && b.lastTick) {
-    const dt = (performance.now() - b.lastTick) / 1000;
-    if (dt > 0) $("b-s-sps").innerHTML = (1 / dt).toFixed(1) + "<small> 步/s</small>";
-  }
-}
-
-async function breakoutNew() {
-  hide("breakout-error");
-  $("breakout-new").disabled = true;
-  $("breakout-new").textContent = "加载中…";
-  try {
-    const data = await api("/api/breakout/new", {
-      model: state.current,
-      guarded: $("b-guarded").checked,
-    });
-    state.breakout = { session: data.session, playing: true, gen: (state.breakout ? state.breakout.gen : 0) + 1, lastTick: 0 };
-    $("b-overlay").hidden = true;
-    $("breakout-toggle").disabled = false;
-    $("breakout-toggle").textContent = "暂停";
-    initBreakoutRows();
-    updateBreakoutPanel(null, data.state);
-    drawBreakout(data.state, null);
-    updateBreakoutStats(data.state, null, null);
-    refreshInfo(true);
-    breakoutLoop(state.breakout.gen);
-  } catch (err) {
-    showError("breakout-error", err.message);
-  } finally {
-    $("breakout-new").disabled = false;
-    $("breakout-new").textContent = "新开一局";
-  }
-}
-
-async function breakoutLoop(gen) {
-  const b = state.breakout;
-  if (!b || b.gen !== gen || !b.playing) return;
-  const speed = Number($("b-speed").value);
-  const target = speed >= 11 ? 0 : 1000 / speed;
-  const t0 = performance.now();
-  let data;
-  try {
-    data = await api("/api/breakout/step", { session: b.session });
-  } catch (err) {
-    showError("breakout-error", err.message);
-    b.playing = false;
-    $("breakout-toggle").disabled = true;
-    return;
-  }
-  if (!state.breakout || state.breakout.gen !== gen) return;
-  if (data.decision) updateBreakoutPanel(data.decision, data.state);
-  updateBreakoutStats(data.state, data.stats, data.decision);
-  const remain = Math.max(0, target - (performance.now() - t0));
-  if (data.trail && data.trail.length > 1 && remain >= 40) {
-    await playTrail(data.trail, remain, (f) => drawBreakout(data.state, f));
-    if (!state.breakout || state.breakout.gen !== gen) return;
-  }
-  drawBreakout(data.state, null);
-  b.lastTick = t0;
-  if (data.done) {
-    b.playing = false;
-    $("breakout-toggle").disabled = true;
-    const won = data.state.won;
-    $("b-overlay-title").textContent = won ? "全部砖块清空，胜利" : "本局结束：球漏掉了";
-    $("b-overlay-sub").textContent = `得分 ${data.state.score}，共 ${data.state.steps} 次决策。`;
-    $("b-overlay").hidden = false;
-    return;
-  }
-  const elapsed = performance.now() - t0;
-  setTimeout(() => breakoutLoop(gen), Math.max(0, target - elapsed));
-}
-
-function breakoutToggle() {
-  const b = state.breakout;
-  if (!b) return;
-  b.playing = !b.playing;
-  $("breakout-toggle").textContent = b.playing ? "暂停" : "继续";
-  if (b.playing) breakoutLoop(b.gen);
-}
-
-/* ---------- tetris view ---------- */
-
-const T_MARKS = ["\u2460", "\u2461", "\u2462", "\u2463"];
-const T_COLORS = {
-  light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#4a3aa7", "#e34948"],
-  dark: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9", "#e66767"],
-};
-
-function candText(c) {
-  const lines = c.lines ? `消${c.lines}行` : "不消行";
-  const holes = c.holes ? `埋${c.holes}洞` : "无洞";
-  const height = c.height > 15 ? "近顶" : c.height > 10 ? "变高" : "低位";
-  return `${lines}·${holes}·${height}`;
-}
-
-function buildTetrisPanel(cands) {
-  const box = $("t-cands");
-  box.innerHTML = "";
-  cands.forEach((c, i) => {
-    const row = document.createElement("div");
-    row.className = "t-cand";
-    row.innerHTML = `<span class="opt" title="${esc(c.statement)}">${T_MARKS[i]} ${candText(c)}</span>
-      <span class="track"><span class="fill"></span></span>
-      <span class="val">…</span>`;
-    box.appendChild(row);
-  });
-}
-
-function pressFx(id) {
-  const b = $(id);
-  b.classList.add("pressed");
-  setTimeout(() => b.classList.remove("pressed"), 150);
-}
-
-function pulseRow(i) {
-  const row = $("t-cands").children[i];
-  if (!row) return;
-  row.classList.add("pulse");
-  setTimeout(() => row.classList.remove("pulse"), 280);
-}
-
-function revealTetrisCand(i, c) {
-  const row = $("t-cands").children[i];
-  if (!row) return;
-  row.querySelector(".fill").style.width = (c.p_good * 100).toFixed(1) + "%";
-  row.querySelector(".val").textContent = pct(c.p_good);
-}
-
-function finalizeTetrisPanel(decision) {
-  const row = $("t-cands").children[decision.executed];
-  if (row) {
-    row.classList.add("chosen");
-    const opt = row.querySelector(".opt");
-    opt.textContent = "✓ " + opt.textContent;
-  }
-  const note = $("t-note");
-  if (decision.intervened) {
-    note.innerHTML = `<span class="flag">护栏干预</span>：模型首选 ${T_MARKS[decision.proposed]}（堆叠过高），改用 ${T_MARKS[decision.executed]}`;
-  } else if (decision.executed === decision.heuristic_best) {
-    note.textContent = `模型选择 ${T_MARKS[decision.executed]}，与启发式首选一致。`;
-  } else {
-    note.textContent = `模型选择 ${T_MARKS[decision.executed]}，与启发式首选不同——判断权在模型。`;
-  }
-}
-
-function updateTetrisPanel(decision) {
-  if (!decision) { $("t-cands").innerHTML = ""; return; }
-  buildTetrisPanel(decision.candidates);
-  decision.candidates.forEach((c, i) => revealTetrisCand(i, c));
-  finalizeTetrisPanel(decision);
-}
-
-const T_SHAPE_IDX = { I: 0, O: 1, T: 2, S: 3, Z: 4, J: 5, L: 6 };
-
-function renderTetrisFrame(snap, opts) {
-  // opts: {piece: {cells, colorIdx, dyPx}, outlineCells, flashRows}
-  const canvas = $("tboard");
-  const ctx = canvas.getContext("2d");
-  const cw = canvas.width / snap.width, ch = canvas.height / snap.height;
-  const css = getComputedStyle(document.documentElement);
-  const colors = T_COLORS[effectiveTheme()];
-  ctx.fillStyle = css.getPropertyValue("--board").trim();
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = css.getPropertyValue("--grid").trim();
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 1; x < snap.width; x++) { ctx.moveTo(x * cw, 0); ctx.lineTo(x * cw, canvas.height); }
-  for (let y = 1; y < snap.height; y++) { ctx.moveTo(0, y * ch); ctx.lineTo(canvas.width, y * ch); }
-  ctx.stroke();
-  for (let y = 0; y < snap.height; y++) {
-    for (let x = 0; x < snap.width; x++) {
-      const v = snap.board[y][x];
-      if (!v) continue;
-      ctx.fillStyle = colors[(v - 1) % colors.length];
-      ctx.beginPath();
-      ctx.roundRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2, 3);
-      ctx.fill();
-    }
-  }
-  if (opts && opts.ghosts) {
-    ctx.save();
-    ctx.font = "600 13px system-ui, sans-serif";
-    for (const g of opts.ghosts) {
-      const pulseAge = g.pulseT ? performance.now() - g.pulseT : 1e9;
-      if (pulseAge < 240) {
-        ctx.save();
-        ctx.setLineDash([]);
-        ctx.fillStyle = css.getPropertyValue("--blue").trim();
-        ctx.globalAlpha = 0.5 * (1 - pulseAge / 240);
-        for (const [x, y] of g.cells) ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
-        ctx.restore();
-      }
-      ctx.setLineDash(g.chosen ? [] : [5, 4]);
-      ctx.lineWidth = g.chosen ? 2.5 : 1.5;
-      const ink = css.getPropertyValue("--ink").trim();
-      const blue = css.getPropertyValue("--blue").trim();
-      ctx.strokeStyle = g.chosen ? blue : ink;
-      ctx.globalAlpha = g.revealed ? 0.95 : 0.35;
-      if (g.chosen) {
-        ctx.fillStyle = blue;
-        ctx.globalAlpha = 0.25;
-        for (const [x, y] of g.cells) ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
-        ctx.globalAlpha = 0.95;
-      }
-      for (const [x, y] of g.cells) {
-        ctx.beginPath();
-        ctx.roundRect(x * cw + 1.5, y * ch + 1.5, cw - 3, ch - 3, 3);
-        ctx.stroke();
-      }
-      const tx = Math.min(...g.cells.map((c) => c[0]));
-      const ty = Math.min(...g.cells.filter((c) => c[0] === tx).map((c) => c[1]));
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = g.chosen ? blue : ink;
-      ctx.fillText(g.mark, tx * cw + 4, ty * ch + 16);
-    }
-    ctx.restore();
-  }
-  if (opts && opts.piece) {
-    ctx.fillStyle = colors[opts.piece.colorIdx % colors.length];
-    for (const [x, y] of opts.piece.cells) {
-      const py = y * ch + opts.piece.dyPx;
-      if (py + ch < 0) continue;
-      ctx.beginPath();
-      ctx.roundRect(x * cw + 1, py + 1, cw - 2, ch - 2, 3);
-      ctx.fill();
-    }
-  }
-  if (opts && opts.flashRows) {
-    ctx.fillStyle = css.getPropertyValue("--ink").trim();
-    ctx.globalAlpha = 0.75;
-    for (const y of opts.flashRows) ctx.fillRect(0, y * ch, canvas.width, ch);
-    ctx.globalAlpha = 1;
-  }
-  if (opts && opts.outlineCells) {
-    ctx.strokeStyle = css.getPropertyValue("--ink").trim();
-    ctx.lineWidth = 2;
-    for (const [x, y] of opts.outlineCells) {
-      ctx.beginPath();
-      ctx.roundRect(x * cw + 1.5, y * ch + 1.5, cw - 3, ch - 3, 3);
-      ctx.stroke();
-    }
-  }
-}
-
-function drawTetris(snap, placedCells) {
-  state._tetrisSnap = snap;
-  state._tetrisPlaced = placedCells;
-  renderTetrisFrame(snap, { outlineCells: placedCells });
-}
-
-// Rotation tables mirroring laya_axera/tetris/game.py exactly (indices must match).
-const T_SHAPES = {
-  I: [[[0,0],[1,0],[2,0],[3,0]], [[0,0],[0,1],[0,2],[0,3]]],
-  O: [[[0,0],[1,0],[0,1],[1,1]]],
-  T: [[[0,0],[1,0],[2,0],[1,1]], [[1,0],[0,1],[1,1],[1,2]], [[1,0],[0,1],[1,1],[2,1]], [[0,0],[0,1],[1,1],[0,2]]],
-  S: [[[1,0],[2,0],[0,1],[1,1]], [[0,0],[0,1],[1,1],[1,2]]],
-  Z: [[[0,0],[1,0],[1,1],[2,1]], [[1,0],[0,1],[1,1],[0,2]]],
-  J: [[[0,0],[0,1],[1,1],[2,1]], [[0,0],[1,0],[0,1],[0,2]], [[0,0],[1,0],[2,0],[2,1]], [[1,0],[1,1],[0,2],[1,2]]],
-  L: [[[2,0],[0,1],[1,1],[2,1]], [[0,0],[0,1],[0,2],[1,2]], [[0,0],[1,0],[2,0],[0,1]], [[0,0],[1,0],[1,1],[1,2]]],
-};
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// Replay the physics frames the server actually ran, spread over the budget.
-function playTrail(trail, budgetMs, render) {
-  return new Promise((resolve) => {
-    const t0 = performance.now();
-    let last = -1;
-    const frame = (now) => {
-      const p = Math.min(1, (now - t0) / budgetMs);
-      const idx = Math.min(trail.length - 1, Math.floor(p * trail.length));
-      if (idx !== last) { render(trail[idx]); last = idx; }
-      if (p < 1) requestAnimationFrame(frame);
-      else resolve();
-    };
-    requestAnimationFrame(frame);
-  });
-}
-
-function pieceFrame(prevSnap, letter, rot, col, rowFloat, ghosts) {
-  const ch = $("tboard").height / prevSnap.height;
-  const cells = T_SHAPES[letter][rot].map(([x, y]) => [col + x, y]);
-  renderTetrisFrame(prevSnap, {
-    piece: { cells, colorIdx: T_SHAPE_IDX[letter] ?? 0, dyPx: rowFloat * ch },
-    ghosts,
-  });
-}
-
-async function animatePlacement(prevSnap, cand, letter, budgetMs, isStale, ghosts, startRow = 0) {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const rots = T_SHAPES[letter];
-  const W = prevSnap.width;
-  const width = (r) => Math.max(...rots[r].map((c) => c[0])) + 1;
-  const clampCol = (c, r) => Math.max(0, Math.min(c, W - width(r)));
-  const spawnCol = clampCol(Math.floor((W - width(0)) / 2), 0);
-
-  // Phase A: spawn at top center, step through rotations in place.
-  const rotFrames = cand.rotation + 1;
-  const rotMs = Math.max(60, (budgetMs * 0.22) / rotFrames);
-  for (let r = 0; r <= cand.rotation; r++) {
-    if (isStale()) return;
-    if (r > 0) pressFx("t-rotate");
-    pieceFrame(prevSnap, letter, r, clampCol(spawnCol, r), startRow, ghosts);
-    await sleep(rotMs);
-  }
-
-  // Phase B: slide cell by cell toward the target column, drifting down a little.
-  const fromCol = clampCol(spawnCol, cand.rotation);
-  const dist = Math.abs(cand.col - fromCol);
-  if (dist > 0) {
-    const stepMs = Math.max(24, (budgetMs * 0.28) / dist);
-    const dir = cand.col > fromCol ? 1 : -1;
-    for (let i = 1; i <= dist; i++) {
-      if (isStale()) return;
-      pressFx(dir > 0 ? "t-right" : "t-left");
-      pieceFrame(prevSnap, letter, cand.rotation, fromCol + dir * i, startRow + (0.8 * i) / dist, ghosts);
-      await sleep(stepMs);
-    }
-  }
-
-  // Phase C: accelerating drop to the resting row.
-  const fallFrom = dist > 0 ? startRow + 0.8 : startRow;
-  pressFx("t-drop");
-  const dropMs = Math.max(140, budgetMs * 0.5);
-  await new Promise((resolve) => {
-    const t0 = performance.now();
-    const frame = (now) => {
-      if (isStale()) return resolve();
-      const p = Math.min(1, (now - t0) / dropMs);
-      pieceFrame(prevSnap, letter, cand.rotation, cand.col, fallFrom + (cand.row - fallFrom) * p * p, ghosts);
-      if (p < 1) requestAnimationFrame(frame);
-      else resolve();
-    };
-    requestAnimationFrame(frame);
-  });
-}
-
-function fullRowsAfter(prevSnap, cells) {
-  const grid = prevSnap.board.map((r) => r.slice());
-  for (const [x, y] of cells) grid[y][x] = 8;
-  const rows = [];
-  grid.forEach((r, y) => { if (r.every((v) => v)) rows.push(y); });
-  return rows;
-}
-
-function updateTetrisStats(snap, stats, decision) {
-  $("t-s-score").textContent = snap.score;
-  $("t-s-lines").textContent = snap.lines;
-  $("t-s-pieces").textContent = snap.pieces;
-  $("t-s-int").textContent = stats ? stats.interventions : 0;
-  if (decision) $("t-s-inf").innerHTML = decision.inference_ms.toFixed(0) + "<small> ms</small>";
-  const t = state.tetris;
-  if (t && t.lastTick) {
-    const dt = (performance.now() - t.lastTick) / 1000;
-    if (dt > 0) $("t-s-mps").innerHTML = (1 / dt).toFixed(1) + "<small> 块/s</small>";
-  }
-}
-
-async function tetrisNew() {
-  hide("tetris-error");
-  manualStop();
-  $("tetris-new").disabled = true;
-  $("tetris-new").textContent = "加载中…";
-  try {
-    const data = await api("/api/tetris/new", {
-      model: state.current,
-      guarded: $("t-guarded").checked,
-    });
-    state.tetris = { session: data.session, playing: true, gen: (state.tetris ? state.tetris.gen : 0) + 1, lastTick: 0 };
-    $("t-overlay").hidden = true;
-    $("tetris-toggle").disabled = false;
-    $("tetris-toggle").textContent = "暂停";
-    updateTetrisPanel(null);
-    drawTetris(data.state, null);
-    updateTetrisStats(data.state, null, null);
-    refreshInfo(true);
-    if (state.tetrisMode === "manual") {
-      $("tetris-toggle").disabled = true;
-      manualSpawn();
-    } else {
-      tetrisLoop(state.tetris.gen);
-    }
-  } catch (err) {
-    showError("tetris-error", err.message);
-  } finally {
-    $("tetris-new").disabled = false;
-    $("tetris-new").textContent = "新开一局";
-  }
-}
-
-async function tetrisLoop(gen) {
-  const t = state.tetris;
-  if (!t || t.gen !== gen || !t.playing) return;
-  const speed = Number($("t-speed").value);
-  const target = speed >= 11 ? 0 : 1000 / speed;
-  const t0 = performance.now();
-  let data;
-  try {
-    data = await api("/api/tetris/step", { session: t.session });
-  } catch (err) {
-    showError("tetris-error", err.message);
-    t.playing = false;
-    $("tetris-toggle").disabled = true;
-    return;
-  }
-  if (!state.tetris || state.tetris.gen !== gen) return;
-  if (data.decision) {
-    const dec = data.decision;
-    const cand = dec.candidates[dec.executed];
-    const cells = cand.cells;
-    const prev = state._tetrisSnap;
-    if (prev && prev.board) {
-      const isStale = () => !state.tetris || state.tetris.gen !== gen;
-      const budget = target > 0 ? Math.max(900, Math.min(2400, target)) : 650;
-      const ghosts = dec.candidates.map((c, i) => ({
-        cells: c.cells, mark: T_MARKS[i], revealed: false, chosen: false,
-      }));
-      const spawnCol = Math.max(0, Math.floor(
-        (prev.width - (Math.max(...T_SHAPES[prev.current][0].map(c => c[0])) + 1)) / 2));
-      const DRIFT = 2.2; // the fresh piece keeps sinking while the model deliberates
-      buildTetrisPanel(dec.candidates);
-      $("t-note").textContent = "模型正在逐个评估候选落点…";
-      const showMs = budget * 0.58;
-      const n = dec.candidates.length;
-      const events = dec.candidates.map((_, i) => ({ at: showMs * (0.12 + (0.62 * i) / n), fired: false }));
-      let winnerFired = false;
-      await new Promise((resolve) => {
-        const t0 = performance.now();
-        const frame = (now) => {
-          if (isStale()) return resolve();
-          const el = now - t0;
-          events.forEach((ev, i) => {
-            if (!ev.fired && el >= ev.at) {
-              ev.fired = true;
-              ghosts[i].revealed = true;
-              ghosts[i].pulseT = now;
-              revealTetrisCand(i, dec.candidates[i]);
-              pulseRow(i);
-            }
-          });
-          if (!winnerFired && el >= showMs * 0.86) {
-            winnerFired = true;
-            ghosts[dec.executed].chosen = true;
-            ghosts[dec.executed].pulseT = now;
-            finalizeTetrisPanel(dec);
-            pulseRow(dec.executed);
-          }
-          pieceFrame(prev, prev.current, 0, spawnCol, DRIFT * Math.min(1, el / showMs), ghosts);
-          if (el < showMs + 240) requestAnimationFrame(frame);
-          else resolve();
-        };
-        requestAnimationFrame(frame);
-      });
-      if (isStale()) return;
-      // rotate, slide, drop into the winning ghost, continuing from the drift row
-      await animatePlacement(prev, cand, prev.current, budget * 0.42, isStale,
-        [ghosts[dec.executed]], DRIFT);
-      if (isStale()) return;
-      const rows = fullRowsAfter(prev, cells);
-      if (rows.length) {
-        renderTetrisFrame(prev, { piece: { cells, colorIdx: T_SHAPE_IDX[prev.current] ?? 0, dyPx: 0 }, flashRows: rows });
-        await sleep(130);
-        if (isStale()) return;
-      }
-    } else {
-      updateTetrisPanel(dec);
-    }
-    drawTetris(data.state, cells);
-  } else {
-    drawTetris(data.state, null);
-  }
-  updateTetrisStats(data.state, data.stats, data.decision);
-  t.lastTick = t0;
-  if (data.done) {
-    t.playing = false;
-    $("tetris-toggle").disabled = true;
-    $("t-overlay-title").textContent = "本局结束：堆到顶了";
-    $("t-overlay-sub").textContent = `得分 ${data.state.score}，消 ${data.state.lines} 行，共 ${data.state.pieces} 块。`;
-    $("t-overlay").hidden = false;
-    return;
-  }
-  const elapsed = performance.now() - t0;
-  setTimeout(() => tetrisLoop(gen), Math.max(0, target - elapsed));
-}
-
-function tetrisToggle() {
-  const t = state.tetris;
-  if (!t) return;
-  t.playing = !t.playing;
-  $("tetris-toggle").textContent = t.playing ? "暂停" : "继续";
-  if (t.playing) tetrisLoop(t.gen);
-}
-
-/* ---------- tetris manual mode ---------- */
-
-const man = { active: false, letter: null, rot: 0, col: 0, rowFloat: 0, timer: null };
-state.tetrisMode = "auto";
-
-function jsFits(board, cells, col, row) {
-  for (const [x, y] of cells) {
-    const bx = col + x, by = row + y;
-    if (bx < 0 || bx >= 10 || by < 0 || by >= 20 || board[by][bx]) return false;
-  }
-  return true;
-}
-
-function jsDropRow(board, cells, col) {
-  if (!jsFits(board, cells, col, 0)) return null;
-  let r = 0;
-  while (jsFits(board, cells, col, r + 1)) r++;
-  return r;
-}
-
-function manualLanding(rot = man.rot, col = man.col) {
-  return jsDropRow(state._tetrisSnap.board, T_SHAPES[man.letter][rot], col);
-}
-
-function manualRender() {
-  const land = manualLanding();
-  const ghosts = land === null ? [] : [{
-    cells: T_SHAPES[man.letter][man.rot].map(([x, y]) => [man.col + x, land + y]),
-    mark: "◎", revealed: true, chosen: false,
-  }];
-  pieceFrame(state._tetrisSnap, man.letter, man.rot, man.col, man.rowFloat, ghosts);
-}
-
-function manualSpawn() {
-  const prev = state._tetrisSnap;
-  if (!prev || !prev.alive || !state.tetris) return;
-  man.letter = prev.current;
-  man.rot = 0;
-  const w = Math.max(...T_SHAPES[man.letter][0].map((c) => c[0])) + 1;
-  man.col = Math.max(0, Math.floor((prev.width - w) / 2));
-  man.rowFloat = 0;
-  man.active = true;
-  $("t-note").textContent = "◀▶ 移动 · A 旋转 · B 速降（键盘：方向键 + 空格）";
-  clearInterval(man.timer);
-  man.timer = setInterval(manualGravity, 650);
-  manualRender();
-}
-
-function manualStop() {
-  man.active = false;
-  clearInterval(man.timer);
-}
-
-function manualGravity() {
-  if (!man.active) return;
-  const land = manualLanding();
-  if (land === null || man.rowFloat + 1 >= land) {
-    man.rowFloat = land === null ? man.rowFloat : land;
-    manualRender();
-    manualLock();
-  } else {
-    man.rowFloat += 1;
-    manualRender();
-  }
-}
-
-function manualTry(rot, col) {
-  if (!man.active) return;
-  const cells = T_SHAPES[man.letter][rot];
-  const maxX = Math.max(...cells.map((c) => c[0]));
-  if (col < 0 || col > 9 - maxX) return;
-  const land = jsDropRow(state._tetrisSnap.board, cells, col);
-  if (land === null || land < man.rowFloat) return;
-  man.rot = rot;
-  man.col = col;
-  manualRender();
-}
-
-function manualRotate() {
-  if (!man.active) return;
-  const rot = (man.rot + 1) % T_SHAPES[man.letter].length;
-  const maxX = Math.max(...T_SHAPES[man.letter][rot].map((c) => c[0]));
-  manualTry(rot, Math.min(man.col, 9 - maxX));
-}
-
-async function manualLock() {
-  if (!man.active) return;
-  manualStop();
-  const prev = state._tetrisSnap;
-  const fromRow = man.rowFloat;
-  let data;
-  try {
-    data = await api("/api/tetris/place", { session: state.tetris.session, rotation: man.rot, col: man.col });
-  } catch (err) {
-    showError("tetris-error", err.message);
-    return;
-  }
-  const your = data.your;
-  // finish the fall from wherever the player left it
-  await new Promise((resolve) => {
-    const dropMs = 160;
-    const t0 = performance.now();
-    const frame = (now) => {
-      const p = Math.min(1, (now - t0) / dropMs);
-      pieceFrame(prev, man.letter, man.rot, man.col, fromRow + (your.row - fromRow) * p * p);
-      if (p < 1) requestAnimationFrame(frame);
-      else resolve();
-    };
-    requestAnimationFrame(frame);
-  });
-  const rows = fullRowsAfter(prev, your.cells);
-  if (rows.length) {
-    renderTetrisFrame(prev, { piece: { cells: your.cells, colorIdx: T_SHAPE_IDX[man.letter] ?? 0, dyPx: 0 }, flashRows: rows });
-    await sleep(130);
-  }
-  drawTetris(data.state, your.cells);
-  renderManualPanel(data);
-  updateTetrisStats(data.state, data.stats, { inference_ms: data.inference_ms });
-  $("t-s-int").textContent = data.stats.matches || 0;
-  if (data.done) {
-    $("t-overlay-title").textContent = "本局结束：堆到顶了";
-    $("t-overlay-sub").textContent = `得分 ${data.state.score}，消 ${data.state.lines} 行，与模型选择一致 ${data.stats.matches || 0}/${data.state.pieces} 次。`;
-    $("t-overlay").hidden = false;
-    return;
-  }
-  if (state.tetrisMode === "manual") manualSpawn();
-}
-
-function renderManualPanel(data) {
-  const box = $("t-cands");
-  box.innerHTML = "";
-  const mkRow = (label, c, chosen, starred) => {
-    const row = document.createElement("div");
-    row.className = "t-cand" + (chosen ? " chosen" : "");
-    row.innerHTML = `<span class="opt" title="${esc(c.statement)}">${chosen ? "✓ " : ""}${starred ? "★ " : ""}${label} ${candText(c)}</span>
-      <span class="track"><span class="fill"></span></span>
-      <span class="val">${pct(c.p_good)}</span>`;
-    requestAnimationFrame(() => { row.querySelector(".fill").style.width = (c.p_good * 100).toFixed(1) + "%"; });
-    box.appendChild(row);
-  };
-  mkRow("你", data.your, true, false);
-  data.candidates.forEach((c, i) => mkRow(T_MARKS[i], c, false, i === data.model_pick));
-  $("t-note").innerHTML = data.match
-    ? "和模型选得一样。下一块：◀▶ 移动 · A 旋转 · B 速降"
-    : `模型更喜欢 ${T_MARKS[data.model_pick]}（${pct(data.candidates[data.model_pick].p_good)}）。下一块继续。`;
-}
-
-function setTetrisMode(mode) {
-  if (state.tetrisMode === mode) return;
-  state.tetrisMode = mode;
-  $("t-mode-auto").classList.toggle("active", mode === "auto");
-  $("t-mode-manual").classList.toggle("active", mode === "manual");
-  for (const id of ["t-left", "t-right", "t-rotate", "t-drop"]) {
-    $(id).disabled = mode !== "manual";
-  }
-  $("t-cands-label").textContent = mode === "manual" ? "你的落点 vs 模型的候选（★ 为模型首选）" : "候选落点与模型评分 P(好落点)";
-  $("t-s-int-label").textContent = mode === "manual" ? "与模型一致" : "护栏干预";
-  $("t-s-int").textContent = "0";
-  if (mode === "manual") {
-    if (state.tetris) {
-      state.tetris.playing = false;
-      $("tetris-toggle").disabled = true;
-    }
-    if (state.tetris && state._tetrisSnap && state._tetrisSnap.alive) manualSpawn();
-  } else {
-    manualStop();
-    if (state.tetris && state._tetrisSnap && state._tetrisSnap.alive) {
-      drawTetris(state._tetrisSnap, null);
-      state.tetris.playing = true;
-      $("tetris-toggle").disabled = false;
-      $("tetris-toggle").textContent = "暂停";
-      tetrisLoop(state.tetris.gen);
-    }
-  }
-}
-
-document.addEventListener("keydown", (e) => {
-  if ($("view-tetris").hidden || state.tetrisMode !== "manual" || !man.active) return;
-  const k = e.key;
-  if (k === "ArrowLeft") manualTry(man.rot, man.col - 1);
-  else if (k === "ArrowRight") manualTry(man.rot, man.col + 1);
-  else if (k === "ArrowUp" || k === "a" || k === "A") manualRotate();
-  else if (k === "ArrowDown" || k === " " || k === "b" || k === "B") manualLock();
-  else return;
-  e.preventDefault();
-});
-
-/* ---------- shell ---------- */
-
-function showError(id, msg) { const el = $(id); el.textContent = msg; el.hidden = false; }
-function hide(id) { $(id).hidden = true; }
-
-function switchView(name) {
-  for (const v of ["decide", "snake", "flappy", "tetris", "breakout"]) {
-    $("view-" + v).hidden = name !== v;
-    $("nav-" + v).classList.toggle("active", name === v);
-  }
-}
-
-function effectiveTheme() {
-  const t = document.documentElement.dataset.theme;
-  if (t === "dark" || t === "light") return t;
-  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-function applyTheme(t) {
-  if (t) document.documentElement.dataset.theme = t;
-  else delete document.documentElement.dataset.theme;
-  $("theme-toggle").textContent = effectiveTheme() === "dark" ? "☀" : "☾";
-  if (state._snakeSnap) drawBoard(state._snakeSnap);
-  if (state._flappySnap) drawFlappy(state._flappySnap, state._flappyFrame);
-  if (state._tetrisSnap) drawTetris(state._tetrisSnap, state._tetrisPlaced);
-  if (state._breakoutSnap) drawBreakout(state._breakoutSnap, state._breakoutFrame);
-}
-$("theme-toggle").onclick = () => {
-  const next = effectiveTheme() === "dark" ? "light" : "dark";
-  applyTheme(next);
-  try { localStorage.setItem("laya-theme", next); } catch {}
-};
-try {
-  const saved = localStorage.getItem("laya-theme");
-  applyTheme(saved === "dark" || saved === "light" ? saved : null);
-} catch { applyTheme(null); }
-
-$("nav-decide").onclick = () => switchView("decide");
-$("nav-snake").onclick = () => switchView("snake");
-$("nav-flappy").onclick = () => switchView("flappy");
-$("nav-tetris").onclick = () => switchView("tetris");
-$("nav-breakout").onclick = () => switchView("breakout");
-$("run").onclick = runPredict;
-$("load-sample").onclick = loadSample;
-$("snake-new").onclick = snakeNew;
-$("snake-toggle").onclick = snakeToggle;
-$("flappy-new").onclick = flappyNew;
-$("flappy-toggle").onclick = flappyToggle;
-$("tetris-new").onclick = tetrisNew;
-$("tetris-toggle").onclick = tetrisToggle;
-$("t-mode-auto").onclick = () => setTetrisMode("auto");
-$("t-mode-manual").onclick = () => setTetrisMode("manual");
-$("t-left").onclick = () => manualTry(man.rot, man.col - 1);
-$("t-right").onclick = () => manualTry(man.rot, man.col + 1);
-$("t-rotate").onclick = manualRotate;
-$("t-drop").onclick = manualLock;
-$("breakout-new").onclick = breakoutNew;
-$("breakout-toggle").onclick = breakoutToggle;
-
-initDirRows();
-initFlappyRows();
-initBreakoutRows();
-(async () => { await refreshInfo(); if (state.current) loadSample(); })();
-setInterval(() => refreshInfo(true), 15000);
-</script>
+<script src="gfx.js?v=5"></script>
+<script src="app.js?v=5"></script>
+<script src="tank.js?v=5"></script>
 </body>
 </html>

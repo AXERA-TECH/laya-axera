@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 
 
 @dataclass
-class FlappyDecision:
+class BirdDecision:
     probabilities: dict
     proposed: str
     executed: str
@@ -26,7 +26,7 @@ class FlappyDecision:
         return asdict(self)
 
 
-class LayaFlappyPolicy:
+class LayaBirdPolicy:
     def __init__(self, agent, *, guarded=True):
         self.agent = agent
         self.guarded = guarded
@@ -69,7 +69,7 @@ class LayaFlappyPolicy:
             other = "down" if proposed == "up" else "up"
             if plan["safe_flap" if other == "up" else "safe_hold"]:
                 executed = other
-        return FlappyDecision(
+        return BirdDecision(
             probabilities=probabilities,
             proposed=proposed,
             executed=executed,

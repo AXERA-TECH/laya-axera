@@ -1,4 +1,4 @@
-"""Deterministic Flappy Bird rules in cell units, with a 2-ply safety planner.
+"""Deterministic bird rules in cell units, with a 2-ply safety planner.
 
 The y axis grows downward (canvas convention). One decision step advances
 FRAMES_PER_STEP physics frames; a flap sets the vertical velocity once at the
@@ -20,7 +20,7 @@ BIRD_R = 0.32
 PIPE_W = 1.6
 
 
-class FlappyGame:
+class BirdGame:
     def __init__(self, width=24, height=16, seed=7, gap=(3.8, 6.0), spacing=9.0):
         # `gap` is the per-pipe corridor height: a (min, max) range drawn per pipe,
         # or a single number for a fixed corridor.
@@ -107,7 +107,7 @@ class FlappyGame:
         return self.alive
 
     def _clone(self):
-        twin = object.__new__(FlappyGame)
+        twin = object.__new__(BirdGame)
         twin.width, twin.height = self.width, self.height
         twin.gap, twin.spacing = self.gap, self.spacing
         twin.gap_min, twin.gap_max = self.gap_min, self.gap_max
@@ -166,6 +166,7 @@ class FlappyGame:
             ],
             "score": self.score,
             "steps": self.steps,
+            "scroll": round(self.frames * SCROLL, 3),
             "alive": self.alive,
             "death_reason": self.death_reason,
         }
